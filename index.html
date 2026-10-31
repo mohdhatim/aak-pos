@@ -1,0 +1,800 @@
+<!doctype html>
+<html lang="ms">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kaunter A&amp;A Kitchen</title>
+<meta name="theme-color" content="#D7261E">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="A&amp;A POS">
+<style>
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+body{margin:0}
+img{max-width:100%}
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: counter screen — menu grid on the left, live order ticket on the right (bottom sheet on phones) */
+:root{
+  --bg:#FBF5EC; --surface:#FFFFFF; --surface-2:#F4EADB; --line:#E6D7C2;
+  --ink:#24170F; --ink-2:#6B5644; --accent:#D7261E; --accent-ink:#FFFFFF;
+  --gold:#C98A1E; --ok:#1F7A4D; --ok-bg:#E3F3EA; --warn-bg:#FDE9E7;
+  --f-display:'Anton','Impact','Arial Narrow',sans-serif;
+  --f-label:'Barlow Condensed','Arial Narrow',sans-serif;
+  --f-body:'Barlow',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --r:12px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#17110D; --surface:#221912; --surface-2:#2C2118; --line:#3B2D22;
+  --ink:#F6EBDD; --ink-2:#BFA990; --accent:#F0453B; --accent-ink:#FFFFFF;
+  --gold:#E3AE4F; --ok:#5BC48C; --ok-bg:#16301F; --warn-bg:#3A1A17; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#17110D; --surface:#221912; --surface-2:#2C2118; --line:#3B2D22;
+  --ink:#F6EBDD; --ink-2:#BFA990; --accent:#F0453B; --accent-ink:#FFFFFF;
+  --gold:#E3AE4F; --ok:#5BC48C; --ok-bg:#16301F; --warn-bg:#3A1A17; color-scheme:dark}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.4;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+
+/* header */
+.top{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding-block:14px;border-bottom:2px solid var(--line)}
+.brand{display:flex;align-items:baseline;gap:10px;margin-right:auto}
+.brand b{font-family:var(--f-display);font-weight:400;font-size:26px;letter-spacing:1px;color:var(--accent)}
+.brand span{font-family:var(--f-label);font-weight:700;font-size:15px;letter-spacing:2px;text-transform:uppercase;color:var(--ink-2)}
+.tabs{display:flex;flex-wrap:wrap;gap:4px;background:var(--surface-2);padding:4px;border-radius:999px}
+.tabs button{border:0;background:transparent;padding:8px 16px;border-radius:999px;font-family:var(--f-label);font-weight:700;font-size:16px;letter-spacing:.5px;color:var(--ink-2)}
+.tabs button[aria-selected="true"]{background:var(--ink);color:var(--bg)}
+.net{font-family:var(--f-label);font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;padding:5px 10px;border-radius:999px;background:var(--ok-bg);color:var(--ok)}
+.net.off{background:var(--warn-bg);color:var(--accent)}
+
+/* sale view */
+.sale{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:20px;padding-block:16px 24px;align-items:start}
+.cats{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.cats button{border:2px solid var(--line);background:var(--surface);padding:8px 14px;border-radius:999px;font-family:var(--f-label);font-weight:700;font-size:16px}
+.cats button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent);color:var(--accent-ink)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.item{border:2px solid var(--line);background:var(--surface);border-radius:var(--r);padding:14px 12px;min-height:96px;text-align:left;display:flex;flex-direction:column;justify-content:space-between;gap:8px;transition:transform .08s,border-color .15s}
+.item:hover{border-color:var(--gold)}
+.item:active{transform:scale(.97)}
+.item .n{font-weight:600;font-size:15px;line-height:1.2}
+.item .k{font-family:var(--f-label);font-weight:700;font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-2)}
+.item .p{font-family:var(--f-display);font-size:22px;color:var(--accent)}
+.item[disabled]{opacity:.45;cursor:not-allowed}
+.sect{font-family:var(--f-label);font-weight:700;font-size:14px;letter-spacing:2px;text-transform:uppercase;color:var(--ink-2);margin:18px 0 8px}
+.sect:first-child{margin-top:0}
+
+/* ticket */
+.ticket{background:var(--surface);border:2px solid var(--line);border-radius:var(--r);position:sticky;top:16px;display:flex;flex-direction:column;max-height:calc(100vh - 110px)}
+.t-head{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:2px dashed var(--line)}
+.t-head h2{margin:0;font-family:var(--f-label);font-weight:700;font-size:20px;letter-spacing:.5px}
+.t-head .ord{font-family:var(--f-display);font-size:20px;color:var(--gold)}
+.lines{list-style:none;margin:0;padding:4px 16px;overflow:auto;flex:1;min-height:80px}
+.line{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.line .ln{font-weight:600}
+.line .la{grid-column:1/-1;font-size:13px;color:var(--ink-2);margin-top:-2px}
+.line .lt{font-weight:700;text-align:right}
+.qty{display:flex;align-items:center;gap:6px;grid-column:1/-1}
+.qty button{width:34px;height:34px;border-radius:8px;border:2px solid var(--line);background:var(--surface-2);font-weight:700;font-size:18px;line-height:1}
+.qty span{min-width:24px;text-align:center;font-weight:700}
+.qty .rm{margin-left:auto;width:auto;padding:0 10px;font-size:13px;font-family:var(--f-label);letter-spacing:1px;text-transform:uppercase;color:var(--accent)}
+.empty{padding:28px 4px;text-align:center;color:var(--ink-2)}
+.t-foot{padding:14px 16px;border-top:2px dashed var(--line);display:flex;flex-direction:column;gap:10px}
+.total{display:flex;justify-content:space-between;align-items:baseline}
+.total span{font-family:var(--f-label);font-weight:700;font-size:16px;letter-spacing:2px;text-transform:uppercase;color:var(--ink-2)}
+.total b{font-family:var(--f-display);font-weight:400;font-size:34px}
+.btn{border:0;border-radius:10px;padding:14px;font-family:var(--f-label);font-weight:700;font-size:20px;letter-spacing:1px;text-transform:uppercase;min-height:52px}
+.btn.pri{background:var(--accent);color:var(--accent-ink)}
+.btn.pri[disabled]{opacity:.4;cursor:not-allowed}
+.btn.sec{background:var(--surface-2);color:var(--ink)}
+.btn.ghost{background:transparent;border:2px solid var(--line);color:var(--ink-2);font-size:16px;min-height:44px;padding:8px 14px}
+.sheetbar{display:none}
+
+/* modal */
+.scrim{position:fixed;inset:0;background:rgba(20,12,6,.55);display:flex;align-items:flex-end;justify-content:center;z-index:50;
+  padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+@media (min-width:640px){.scrim{align-items:center}}
+.modal{background:var(--surface);border-radius:16px;width:100%;max-width:460px;max-height:100%;overflow:auto;padding:20px;display:flex;flex-direction:column;gap:14px}
+.modal h3{margin:0;font-family:var(--f-label);font-weight:700;font-size:24px}
+.modal .sub{color:var(--ink-2);margin-top:-10px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:2px solid var(--line);background:var(--surface);border-radius:999px;padding:9px 14px;font-weight:600;font-size:14px}
+.chip[aria-pressed="true"]{border-color:var(--ink);background:var(--ink);color:var(--bg)}
+.lbl{font-family:var(--f-label);font-weight:700;font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--ink-2)}
+.row{display:flex;gap:10px}
+.row>*{flex:1}
+.bigtotal{text-align:center;padding:10px;border-radius:12px;background:var(--surface-2)}
+.bigtotal div{font-family:var(--f-display);font-size:44px;line-height:1.1}
+.cashin{width:100%;font-family:var(--f-display);font-size:30px;padding:10px 14px;border-radius:10px;border:2px solid var(--line);background:var(--bg);color:var(--ink);text-align:right}
+.change{display:flex;justify-content:space-between;align-items:baseline;padding:12px 14px;border-radius:10px;background:var(--ok-bg);color:var(--ok)}
+.change.short{background:var(--warn-bg);color:var(--accent)}
+.change b{font-family:var(--f-display);font-weight:400;font-size:28px}
+.done{text-align:center}
+.done .big{font-family:var(--f-display);font-size:56px;color:var(--gold);line-height:1}
+
+/* report + menu views */
+.view{padding-block:16px 32px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:18px}
+.tile{background:var(--surface);border:2px solid var(--line);border-radius:var(--r);padding:14px}
+.tile .lbl{display:block;margin-bottom:6px}
+.tile b{font-family:var(--f-display);font-weight:400;font-size:28px}
+.tile.main{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.tile.main .lbl{color:var(--bg);opacity:.75}
+.two{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px;align-items:start}
+.panel{background:var(--surface);border:2px solid var(--line);border-radius:var(--r);padding:16px;min-width:0}
+.panel h3{margin:0 0 10px;font-family:var(--f-label);font-weight:700;font-size:19px}
+.orders{list-style:none;margin:0;padding:0}
+.orders li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:4px 12px;padding:12px 0;border-bottom:1px solid var(--line);align-items:start}
+.orders .on{font-family:var(--f-display);font-size:18px;color:var(--gold)}
+.orders .od{font-size:14px;color:var(--ink-2)}
+.orders .ot{font-weight:700;text-align:right}
+.orders .ox{grid-column:2/-1;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pill{font-family:var(--f-label);font-weight:700;font-size:12px;letter-spacing:1px;text-transform:uppercase;padding:3px 8px;border-radius:999px;background:var(--surface-2);color:var(--ink-2)}
+.pill.void{background:var(--warn-bg);color:var(--accent)}
+.orders li.voided .ot,.orders li.voided .od{text-decoration:line-through;opacity:.6}
+.linkbtn{border:0;background:none;padding:4px 0;font-size:13px;font-weight:600;color:var(--accent);text-decoration:underline}
+.bars{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.bars li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 8px;font-size:14px}
+.bars .bar{grid-column:1/-1;height:8px;border-radius:4px;background:var(--surface-2);overflow:hidden}
+.bars .bar i{display:block;height:100%;background:var(--accent);border-radius:4px}
+.tblwrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:520px}
+th,td{padding:10px 8px;border-bottom:1px solid var(--line);text-align:left}
+th{font-family:var(--f-label);font-weight:700;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink-2)}
+td input[type=number]{width:110px;padding:8px 10px;border-radius:8px;border:2px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-weight:600;text-align:right}
+td.catrow{font-family:var(--f-label);font-weight:700;font-size:15px;letter-spacing:1px;text-transform:uppercase;background:var(--surface-2);color:var(--ink)}
+.bar-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px}
+.note{font-size:14px;color:var(--ink-2)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:999px;font-weight:600;z-index:60}
+
+/* kitchen queue */
+.badge{display:inline-block;min-width:22px;padding:1px 6px;margin-left:4px;border-radius:999px;background:var(--accent);color:var(--accent-ink);font-size:13px;line-height:1.4;text-align:center}
+.qhead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:0 0 12px}
+.qhead h2{margin:0;font-family:var(--f-label);font-weight:700;font-size:22px}
+.qhead .note{margin-right:auto}
+.queue{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;align-items:start}
+.qcard{background:var(--surface);border:2px solid var(--line);border-top:8px solid var(--gold);border-radius:var(--r);display:flex;flex-direction:column;min-width:0}
+.qcard.late{border-top-color:var(--accent)}
+.qcard.ready{border-top-color:var(--ok)}
+.qc-head{display:flex;justify-content:space-between;align-items:baseline;padding:12px 14px 8px}
+.qc-head .on{font-family:var(--f-display);font-size:30px;line-height:1}
+.qc-head .age{font-family:var(--f-label);font-weight:700;font-size:15px;letter-spacing:.5px;color:var(--ink-2)}
+.qcard.late .age{color:var(--accent)}
+.qitems{list-style:none;margin:0;padding:0 14px}
+.qitems label{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-top:1px solid var(--line);cursor:pointer}
+.qitems input{width:22px;height:22px;margin:1px 0 0;accent-color:var(--ok);flex:0 0 auto}
+.qitems .qn{font-weight:700;font-size:16px}
+.qitems .qa{display:block;font-size:13px;color:var(--ink-2)}
+.qitems label.done .qn,.qitems label.done .qa{text-decoration:line-through;opacity:.55}
+.qc-foot{padding:12px 14px 14px}
+.qc-foot .btn{width:100%;font-size:18px;min-height:48px;padding:10px}
+.btn.okb{background:var(--ok);color:#fff}
+.unpaid{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px;padding:10px 12px;border-radius:var(--r);background:var(--warn-bg)}
+.unpaid .lbl{color:var(--accent);margin-right:4px}
+.unpaid button{border:2px solid var(--accent);background:var(--surface);color:var(--ink);border-radius:999px;padding:6px 12px;font-weight:600;font-size:14px}
+.unpaid button b{color:var(--accent)}
+.pill.due{background:var(--accent);color:var(--accent-ink)}
+.note-line{grid-column:1/-1;font-size:13px;font-weight:700;color:var(--accent);margin-top:-2px}
+.qnote{display:block;font-size:14px;font-weight:700;color:var(--accent);margin-top:2px}
+.rmtext{width:100%;padding:10px 12px;border-radius:10px;border:2px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:15px}
+.chip.rmk[aria-pressed="true"]{border-color:var(--accent);background:var(--accent);color:var(--accent-ink)}
+.qempty{padding:36px 16px;text-align:center;color:var(--ink-2);background:var(--surface);border:2px dashed var(--line);border-radius:var(--r)}
+
+@media (max-width:900px){
+  .sale{grid-template-columns:minmax(0,1fr);padding-bottom:96px}
+  .ticket{position:fixed;left:0;right:0;bottom:0;top:auto;border-radius:16px 16px 0 0;max-height:80vh;z-index:40;border-width:2px 0 0;
+    padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+    transform:translateY(105%);transition:transform .2s}
+  .ticket.open{transform:none}
+  .sheetbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:30;gap:10px;align-items:center;
+    padding:12px max(16px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));
+    background:var(--ink);color:var(--bg)}
+  .sheetbar .s1{flex:1;font-weight:600}
+  .sheetbar .s1 b{font-family:var(--f-display);font-weight:400;font-size:24px;margin-left:6px}
+  .sheetbar button{background:var(--accent);color:var(--accent-ink);border:0;border-radius:10px;padding:12px 18px;font-family:var(--f-label);font-weight:700;font-size:18px;letter-spacing:1px}
+  .tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .tiles .tile.main{grid-column:1/-1}
+  .two{grid-template-columns:minmax(0,1fr)}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+
+<header class="top">
+  <div class="brand"><b>A &amp; A KITCHEN</b><span>Kaunter</span></div>
+  <nav class="tabs" role="tablist" aria-label="Paparan">
+    <button role="tab" id="tab-sale" data-view="sale" aria-selected="true">Jualan</button>
+    <button role="tab" id="tab-kitchen" data-view="kitchen" aria-selected="false">Dapur <span class="badge num" id="kBadge" hidden>0</span></button>
+    <button role="tab" id="tab-report" data-view="report" aria-selected="false">Hari Ini</button>
+    <button role="tab" id="tab-menu" data-view="menu" aria-selected="false">Menu &amp; Harga</button>
+  </nav>
+  <span class="net" id="net">Online</span>
+</header>
+
+<main>
+  <section class="sale" id="view-sale">
+    <div>
+      <div class="unpaid" id="unpaid" hidden></div>
+      <div class="cats" id="cats" aria-label="Kategori"></div>
+      <div id="menu"></div>
+    </div>
+    <aside class="ticket" id="ticket" aria-label="Pesanan semasa">
+      <div class="t-head"><h2>Pesanan</h2><span class="ord num" id="ordno">#001</span></div>
+      <ul class="lines" id="lines"></ul>
+      <div class="t-foot">
+        <div class="total"><span>Jumlah</span><b class="num" id="total">RM 0.00</b></div>
+        <div class="row">
+          <button class="btn sec" id="clearBtn" style="flex:0 0 auto;padding-inline:16px">Kosongkan</button>
+          <button class="btn pri" id="payBtn" disabled>Bayar sekarang</button>
+        </div>
+        <button class="btn ghost" id="laterBtn" disabled>Hantar ke dapur · bayar kemudian</button>
+      </div>
+    </aside>
+    <div class="sheetbar" id="sheetbar">
+      <div class="s1"><span id="sbCount">0 item</span><b class="num" id="sbTotal">RM 0.00</b></div>
+      <button id="sbOpen">Lihat pesanan</button>
+    </div>
+  </section>
+
+  <section class="view" id="view-kitchen" hidden></section>
+  <section class="view" id="view-report" hidden></section>
+  <section class="view" id="view-menu" hidden></section>
+</main>
+
+<div class="scrim" id="scrim" hidden><div class="modal" id="modal" role="dialog" aria-modal="true"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function(){
+const SEN = v => Math.round(v*100);
+const RM = s => 'RM ' + (s/100).toFixed(2);
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------- default menu (harga semasa) ---------- */
+const CATS = [
+  {id:'daging', name:'Burger Daging'},
+  {id:'ayam', name:'Burger Ayam'},
+  {id:'kambing', name:'Burger Kambing'},
+  {id:'combo', name:'Combo Set + Fries'},
+  {id:'sampingan', name:'Sampingan'},
+  {id:'snacks', name:'Snacks'},
+  {id:'tako', name:'Tako'},
+  {id:'sejuk', name:'Minuman Sejuk'},
+  {id:'panas', name:'Minuman Panas'},
+  {id:'blended', name:'Ais Blended'},
+  {id:'aiskrim', name:'Aiskrim'}
+];
+const V = ['Biasa','Special','Double','Double Special'];
+function mk(cat, prefix, prices, addons){ return V.map((v,i)=>({id:cat+'-'+prefix+i, cat, name:v, group:prefix, prefix, price:SEN(prices[i]), addons, station:'Burger', avail:true})); }
+const slug = t => t.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+// it(kategori, nama, harga, stesen, add-on)
+function it(cat, name, price, station, addons){ const c = CATS.find(x=>x.id===cat); return {id:cat+'-'+slug(name), cat, name, group:c.name, prefix:'', price:SEN(price), addons:addons||null, station, avail:true}; }
+const DEFAULT_MENU = [
+  ...mk('daging','Daging',[4.5,5.5,7,8],'burger'),
+  ...mk('ayam','Ayam',[4.5,5.5,6.5,8.5],'burger'),
+  ...mk('kambing','Kambing',[6,7,9.5,10.5],'burger'),
+  ...mk('combo','Combo Daging',[6.5,7.5,9,10],'combo'),
+  ...mk('combo','Combo Ayam',[6.5,7.5,9,10],'combo'),
+  ...mk('combo','Combo Kambing',[8,9,11,12.5],'combo'),
+  {id:'side-fries', cat:'sampingan', group:'Sampingan', prefix:'', name:'Fries', price:SEN(6), addons:null, station:'Burger', avail:true},
+  {id:'side-fn', cat:'sampingan', group:'Sampingan', prefix:'', name:'Fries + Nugget', price:SEN(9), addons:null, station:'Burger', avail:true},
+  it('sampingan','Keropok Lekor',4,'Burger'),
+  it('snacks','Sausage Cheese (1pc)',5,'Burger'),
+  it('snacks','Ayam Crispy (1pc)',5,'Burger'),
+  it('snacks','Ayam Gunting Crispy (1 set)',10,'Burger'),
+  it('snacks','Benjo',3,'Burger'),
+  it('tako','Tako Single',5,'Tako'),
+  it('tako','Tako Family',10,'Tako'),
+  it('sejuk','Sirap Ais',2,'Air'),
+  it('sejuk','Sirap Bandung Ais',3,'Air'),
+  it('sejuk','Sirap Limau Ais',2,'Air'),
+  it('sejuk','Teh O Ais',2,'Air'),
+  it('sejuk','Teh Ais',2.5,'Air'),
+  it('sejuk','Kopi O Ais',2,'Air'),
+  it('sejuk','Kopi Ais',2.5,'Air'),
+  it('sejuk','Milo Ais',3,'Air'),
+  it('sejuk','Nescafe Ais',3,'Air'),
+  it('sejuk','Nescafe O Ais',2.5,'Air'),
+  it('sejuk','Xtra Jos Ais',3,'Air'),
+  it('sejuk','Limau Ais',2,'Air'),
+  it('sejuk','Ais Kosong',0.5,'Air'),
+  it('panas','Sirap Bandung',2.5,'Air'),
+  it('panas','Sirap Limau',2,'Air'),
+  it('panas','Teh',2.5,'Air'),
+  it('panas','Teh O',1.5,'Air'),
+  it('panas','Kopi O',2,'Air'),
+  it('panas','Kopi',2.5,'Air'),
+  it('panas','Milo',2.5,'Air'),
+  it('panas','Nescafe O',2.5,'Air'),
+  it('panas','Nescafe',3,'Air'),
+  it('panas','Limau',2,'Air'),
+  it('panas','Air Suam',0.2,'Air'),
+  ...['Coklat','Strawberi','Vanila Blue','Green Apple','Honeydew','Oreo','Avocado'].flatMap(f => [
+    it('blended', f+' (S)', 3, 'Air', 'blended'), it('blended', f+' (L)', 5, 'Air', 'blended')]),
+  it('aiskrim','Aiskrim Bata',5,'Kaunter')
+];
+const ADDONS = {
+  burger:[
+    {id:'cheese', name:'Cheese', price:SEN(2)},
+    {id:'telur', name:'Telur', price:SEN(1)},
+    {id:'dagingayam', name:'Daging/Ayam', price:SEN(2.5)},
+    {id:'kambing', name:'Kambing', price:SEN(3.5)}
+  ],
+  combo:[
+    {id:'cheese', name:'Cheese', price:SEN(2)},
+    {id:'telur', name:'Telur', price:SEN(1)},
+    {id:'dagingayam', name:'Daging/Ayam', price:SEN(2.5)},
+    {id:'kambing', name:'Kambing', price:SEN(3.5)},
+    {id:'fanta-or', name:'Fanta Orange', price:SEN(2), drink:true},
+    {id:'fanta-st', name:'Fanta Strawberry', price:SEN(2), drink:true},
+    {id:'fanta-ag', name:'Fanta Anggur', price:SEN(2), drink:true}
+  ],
+  blended:[
+    {id:'boba', name:'Boba', price:SEN(1)},
+    {id:'jelly', name:'Jelly', price:SEN(1)},
+    {id:'aiskrimbtg', name:'Aiskrim Batang', price:SEN(0.5)}
+  ]
+};
+
+const WALLETS = ['DuitNow QR','Touch \'n Go','GrabPay','ShopeePay','Boost','Pindahan Bank'];
+const REMARKS = ['Tak nak sayur','Tak nak sos cili','Mayo sahaja','Kosong budak'];
+const REMARKS_AIR = ['Kurang manis','Kurang ais','Tak nak ais'];
+
+/* ---------- storage (simpan dalam peranti ini) ---------- */
+const K = {menu:'aak_menu_v1', sales:'aak_sales_v1'};
+function load(k, fb){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : fb; }catch(e){ return fb; } }
+function save(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ return false; } }
+
+// gabung harga/status simpanan dengan senarai menu terkini (item baru auto muncul)
+const savedMenu = load(K.menu, null);
+let menu = DEFAULT_MENU.map(d => {
+  const sv = Array.isArray(savedMenu) ? savedMenu.find(x => x.id === d.id) : null;
+  return sv ? {...d, price: sv.price, avail: sv.avail} : {...d};
+});
+let sales = load(K.sales, []);
+if(!Array.isArray(sales)) sales = [];
+
+const todayKey = () => { const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+const todaySales = () => sales.filter(s => s.day === todayKey());
+const nextNo = () => todaySales().reduce((m,s)=>Math.max(m,s.no),0) + 1;
+const fmtNo = n => '#' + String(n).padStart(3,'0');
+
+/* ---------- state ---------- */
+let cat = 'daging';
+let cart = []; // {key, itemId, label, addons:[{id,name,price}], unit, qty}
+
+/* ---------- views ---------- */
+document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => show(b.dataset.view)));
+function show(v){
+  document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.view===v)));
+  $('view-sale').hidden = v!=='sale'; $('view-report').hidden = v!=='report'; $('view-menu').hidden = v!=='menu'; $('view-kitchen').hidden = v!=='kitchen';
+  if(v==='kitchen') renderKitchen();
+  if(v==='report') renderReport();
+  if(v==='menu') renderMenuEditor();
+  if(v==='sale') renderSale();
+}
+
+/* ---------- sale screen ---------- */
+function renderCats(){
+  $('cats').innerHTML = CATS.map(c => `<button data-cat="${c.id}" aria-pressed="${c.id===cat}">${esc(c.name)}</button>`).join('');
+}
+$('cats').addEventListener('click', e => { const b = e.target.closest('button'); if(!b) return; cat = b.dataset.cat; renderCats(); renderMenu(); });
+
+function renderMenu(){
+  const items = menu.filter(i => i.cat === cat);
+  const groups = [...new Set(items.map(i => i.group))];
+  $('menu').innerHTML = groups.map(g => `
+    ${groups.length>1 ? `<div class="sect">${esc(g)}</div>` : ''}
+    <div class="grid">${items.filter(i=>i.group===g).map(i => `
+      <button class="item" data-id="${i.id}" ${i.avail?'':'disabled'}>
+        <span><span class="k">${esc(i.group)}</span><br><span class="n">${esc(i.name)}</span></span>
+        <span class="p num">${i.avail ? RM(i.price) : 'Habis'}</span>
+      </button>`).join('')}</div>`).join('');
+}
+$('menu').addEventListener('click', e => {
+  const b = e.target.closest('.item'); if(!b || b.disabled) return;
+  const item = menu.find(i => i.id === b.dataset.id);
+  if(item.addons) openAddons(item); else addToCart(item, [], 1);
+});
+
+function itemLabel(item){ return item.prefix ? item.prefix + ' ' + item.name : item.name; }
+
+function addToCart(item, addons, qty, notes){
+  notes = notes || [];
+  const unit = item.price + addons.reduce((s,a)=>s+a.price,0);
+  const key = item.id + '|' + addons.map(a=>a.id).sort().join(',') + '|' + notes.join(';');
+  const ex = cart.find(c => c.key === key);
+  if(ex) ex.qty += qty; else cart.push({key, itemId:item.id, label:itemLabel(item), addons, unit, qty, notes, station:item.station||'Burger'});
+  renderCart(); toast('Ditambah: ' + itemLabel(item));
+}
+
+function cartTotal(){ return cart.reduce((s,c)=>s+c.unit*c.qty,0); }
+function cartCount(){ return cart.reduce((s,c)=>s+c.qty,0); }
+
+function renderCart(){
+  $('ordno').textContent = fmtNo(nextNo());
+  if(!cart.length){
+    $('lines').innerHTML = `<li class="empty">Tekan menu di sebelah untuk mula ambil pesanan.</li>`;
+  } else {
+    $('lines').innerHTML = cart.map((c,idx) => `
+      <li class="line">
+        <span class="ln">${esc(c.label)}</span><span class="lt num">${RM(c.unit*c.qty)}</span>
+        ${c.addons.length ? `<span class="la">+ ${c.addons.map(a=>esc(a.name)).join(', ')}</span>` : ''}
+        ${c.notes && c.notes.length ? `<span class="note-line">Nota: ${c.notes.map(esc).join(', ')}</span>` : ''}
+        <div class="qty">
+          <button data-a="dec" data-i="${idx}" aria-label="Kurang satu">−</button>
+          <span class="num">${c.qty}</span>
+          <button data-a="inc" data-i="${idx}" aria-label="Tambah satu">+</button>
+          <span class="la num" style="margin:0 0 0 6px">@ ${RM(c.unit)}</span>
+          <button class="rm" data-a="rm" data-i="${idx}">Buang</button>
+        </div>
+      </li>`).join('');
+  }
+  const t = cartTotal(), n = cartCount();
+  $('total').textContent = RM(t);
+  $('payBtn').disabled = !n; $('laterBtn').disabled = !n;
+  $('sbCount').textContent = n + ' item';
+  $('sbTotal').textContent = RM(t);
+}
+$('lines').addEventListener('click', e => {
+  const b = e.target.closest('button[data-a]'); if(!b) return;
+  const i = +b.dataset.i, a = b.dataset.a;
+  if(a==='inc') cart[i].qty++;
+  if(a==='dec'){ cart[i].qty--; if(cart[i].qty<=0) cart.splice(i,1); }
+  if(a==='rm') cart.splice(i,1);
+  renderCart();
+});
+$('clearBtn').addEventListener('click', () => { if(!cart.length) return; cart = []; renderCart(); toast('Pesanan dikosongkan'); });
+$('sbOpen').addEventListener('click', () => $('ticket').classList.toggle('open'));
+$('payBtn').addEventListener('click', () => openPay(null));
+$('laterBtn').addEventListener('click', sendLater);
+
+function renderSale(){ renderCats(); renderMenu(); renderCart(); renderUnpaid(); }
+
+/* ---------- modal helpers ---------- */
+function openModal(html, onBind){
+  // ganti elemen modal setiap kali supaya pendengar lama tak berganda
+  const old = $('modal'), fresh = old.cloneNode(false); old.replaceWith(fresh);
+  fresh.innerHTML = html; $('scrim').hidden = false; $('ticket').classList.remove('open');
+  if(onBind) onBind(fresh);
+  const f = $('modal').querySelector('[data-focus]') || $('modal').querySelector('button'); if(f) f.focus();
+}
+function closeModal(){ $('scrim').hidden = true; $('modal').innerHTML = ''; }
+$('scrim').addEventListener('click', e => { if(e.target === $('scrim')) closeModal(); });
+document.addEventListener('keydown', e => { if(e.key==='Escape' && !$('scrim').hidden) closeModal(); });
+
+/* ---------- add-ons ---------- */
+function openAddons(item){
+  const list = ADDONS[item.addons] || [];
+  const sel = new Set(); const rsel = new Set(); let qty = 1;
+  const RMK = item.addons==='blended' ? REMARKS_AIR : REMARKS;
+  const food = list.filter(a=>!a.drink), drinks = list.filter(a=>a.drink);
+  const chip = a => `<button class="chip" data-ad="${a.id}" aria-pressed="false">${esc(a.name)} <span class="num">+${RM(a.price)}</span></button>`;
+  openModal(`
+    <h3>${esc(itemLabel(item))}</h3>
+    <div class="sub num">${RM(item.price)}</div>
+    <div><div class="lbl" style="margin-bottom:8px">Add on</div><div class="chips">${food.map(chip).join('')}</div></div>
+    ${drinks.length ? `<div><div class="lbl" style="margin-bottom:8px">Tambah air (RM2.00)</div><div class="chips">${drinks.map(chip).join('')}</div></div>` : ''}
+    <div><div class="lbl" style="margin-bottom:8px">Remark</div>
+      <div class="chips" style="margin-bottom:8px">${RMK.map(r=>`<button class="chip rmk" data-rmk="${esc(r)}" aria-pressed="false">${esc(r)}</button>`).join('')}</div>
+      <label class="lbl" for="rmText" style="display:block;margin-bottom:6px;letter-spacing:1px;font-size:12px">Nota lain (pilihan)</label>
+      <input class="rmtext" id="rmText" type="text" maxlength="80" placeholder="Contoh: bawang lebih, potong dua" autocomplete="off">
+    </div>
+    <div class="row" style="align-items:center">
+      <div class="lbl" style="flex:0 0 auto">Kuantiti</div>
+      <div class="qty" style="justify-content:flex-end"><button data-q="-1" aria-label="Kurang">−</button><span class="num" id="mq">1</span><button data-q="1" aria-label="Tambah">+</button></div>
+    </div>
+    <div class="row"><button class="btn sec" data-x>Batal</button><button class="btn pri" data-ok data-focus>Tambah · <span class="num" id="mt">${RM(item.price)}</span></button></div>
+  `, m => {
+    const upd = () => {
+      const unit = item.price + list.filter(a=>sel.has(a.id)).reduce((s,a)=>s+a.price,0);
+      m.querySelector('#mt').textContent = RM(unit*qty); m.querySelector('#mq').textContent = qty;
+    };
+    m.addEventListener('click', e => {
+      const c = e.target.closest('[data-ad]');
+      if(c){ const id=c.dataset.ad; const a=list.find(x=>x.id===id);
+        if(a.drink && !sel.has(id)){ drinks.forEach(d=>{ sel.delete(d.id); const el=m.querySelector(`[data-ad="${d.id}"]`); el && el.setAttribute('aria-pressed','false'); }); }
+        sel.has(id) ? sel.delete(id) : sel.add(id); c.setAttribute('aria-pressed', String(sel.has(id))); upd(); return; }
+      const rk = e.target.closest('[data-rmk]');
+      if(rk){ const r = rk.dataset.rmk; rsel.has(r) ? rsel.delete(r) : rsel.add(r); rk.setAttribute('aria-pressed', String(rsel.has(r))); return; }
+      const q = e.target.closest('[data-q]'); if(q){ qty = Math.max(1, qty + +q.dataset.q); upd(); return; }
+      if(e.target.closest('[data-x]')) return closeModal();
+      if(e.target.closest('[data-ok]')){
+        const extra = m.querySelector('#rmText').value.trim();
+        const notes = RMK.filter(r=>rsel.has(r)).concat(extra ? [extra] : []);
+        addToCart(item, list.filter(a=>sel.has(a.id)).map(a=>({id:a.id,name:a.name,price:a.price})), qty, notes); closeModal(); }
+    });
+  });
+}
+
+/* ---------- payment ---------- */
+function openPay(target, handOver){
+  const total = target ? target.total : cartTotal(); let method = 'Tunai'; let cash = 0; let wallet = WALLETS[0];
+  const quick = [...new Set([total, Math.ceil(total/500)*500, Math.ceil(total/1000)*1000, 2000, 5000, 10000].filter(v=>v>=total))].slice(0,5);
+  openModal(`
+    <h3>Bayaran ${fmtNo(target ? target.no : nextNo())}</h3>
+    <div class="bigtotal"><div class="lbl">Jumlah perlu bayar</div><div class="num">${RM(total)}</div></div>
+    <div class="chips" role="group" aria-label="Kaedah bayaran">
+      <button class="chip" data-m="Tunai" aria-pressed="true">Tunai</button>
+      <button class="chip" data-m="E-Wallet" aria-pressed="false">E-Wallet / QR</button>
+    </div>
+    <div id="ewbox" hidden style="display:flex;flex-direction:column;gap:8px">
+      <div class="lbl">Jenis e-wallet</div>
+      <div class="chips">${WALLETS.map((w,i)=>`<button class="chip" data-ew="${esc(w)}" aria-pressed="${i===0}">${esc(w)}</button>`).join('')}</div>
+      <p class="note" style="margin:0">Semak notifikasi duit masuk sebelum tekan Sahkan.</p>
+    </div>
+    <div id="cashbox" style="display:flex;flex-direction:column;gap:10px">
+      <label class="lbl" for="cashIn">Duit diterima (RM)</label>
+      <input class="cashin num" id="cashIn" type="number" inputmode="decimal" min="0" step="0.10" placeholder="0.00" data-focus>
+      <div class="chips">${quick.map(v=>`<button class="chip num" data-c="${v}" aria-pressed="false">${v===total?'Cukup-cukup':RM(v)}</button>`).join('')}</div>
+      <div class="change short" id="chg"><span class="lbl" style="color:inherit">Baki</span><b class="num">—</b></div>
+    </div>
+    <div class="row"><button class="btn sec" data-x>Batal</button><button class="btn pri" data-ok disabled>Sahkan</button></div>
+  `, m => {
+    const ok = m.querySelector('[data-ok]'), chg = m.querySelector('#chg'), inp = m.querySelector('#cashIn');
+    const upd = () => {
+      if(method!=='Tunai'){ m.querySelector('#cashbox').hidden = true; m.querySelector('#ewbox').hidden = false; ok.disabled = false; return; }
+      m.querySelector('#cashbox').hidden = false; m.querySelector('#ewbox').hidden = true;
+      const d = cash - total;
+      if(!cash){ chg.className='change short'; chg.querySelector('b').textContent='—'; ok.disabled = true; }
+      else if(d < 0){ chg.className='change short'; chg.querySelector('span').textContent='Kurang'; chg.querySelector('b').textContent=RM(-d); ok.disabled = true; }
+      else { chg.className='change'; chg.querySelector('span').textContent='Baki'; chg.querySelector('b').textContent=RM(d); ok.disabled = false; }
+    };
+    inp.addEventListener('input', () => { cash = SEN(parseFloat(inp.value)||0); m.querySelectorAll('[data-c]').forEach(c=>c.setAttribute('aria-pressed','false')); upd(); });
+    m.addEventListener('click', e => {
+      const mb = e.target.closest('[data-m]'); if(mb){ method = mb.dataset.m; m.querySelectorAll('[data-m]').forEach(x=>x.setAttribute('aria-pressed', String(x===mb))); upd(); return; }
+      const ew = e.target.closest('[data-ew]'); if(ew){ wallet = ew.dataset.ew; m.querySelectorAll('[data-ew]').forEach(x=>x.setAttribute('aria-pressed', String(x===ew))); return; }
+      const cb = e.target.closest('[data-c]'); if(cb){ cash = +cb.dataset.c; inp.value = (cash/100).toFixed(2); m.querySelectorAll('[data-c]').forEach(x=>x.setAttribute('aria-pressed', String(x===cb))); upd(); return; }
+      if(e.target.closest('[data-x]')) return closeModal();
+      if(e.target.closest('[data-ok]') && !ok.disabled){ const amt = method==='Tunai'?cash:total; const w = method==='Tunai' ? null : wallet; target ? settle(target, method, amt, handOver, w) : finish(method, amt, w); }
+    });
+    upd();
+  });
+}
+
+const methodName = sl => sl.wallet ? sl.wallet : (sl.method || '');
+const isPaidOf = sl => sl.isPaid !== false; // jualan lama dianggap dah bayar
+
+function createOrder(pay){
+  const total = cartTotal(), no = nextNo(), now = new Date();
+  const sale = {id: now.getTime()+'-'+no, day: todayKey(), no, time: now.toISOString(),
+    method: pay ? pay.method : null, wallet: pay ? (pay.wallet||null) : null, total, paid: pay ? pay.paid : 0, change: pay ? pay.paid-total : 0,
+    isPaid: !!pay, paidAt: pay ? now.toISOString() : null,
+    items: cart.map(c=>({label:c.label, addons:c.addons.map(a=>a.name), notes:c.notes||[], unit:c.unit, qty:c.qty, station:c.station||'Burger', done:false})), void:false, synced:false,
+    status:'baru'};
+  sales.push(sale);
+  const stored = save(K.sales, sales);
+  cart = []; renderCart(); updateBadge(); renderUnpaid();
+  return {sale, stored};
+}
+
+function paidModal(sale, stored, extra){
+  openModal(`
+    <div class="done">
+      <div class="lbl">Bayaran diterima</div>
+      <div class="big num">${fmtNo(sale.no)}</div>
+      <p style="margin:6px 0 0">${esc(methodName(sale))} · <b class="num">${RM(sale.total)}</b></p>
+      ${sale.method==='Tunai' ? `<div class="change" style="margin-top:12px"><span class="lbl" style="color:inherit">Pulangkan baki</span><b class="num">${RM(sale.change)}</b></div>` : ''}
+      <p class="note" style="margin:10px 0 0">${extra}</p>
+      ${stored ? '' : `<p class="note" style="color:var(--accent)">Jualan tak dapat disimpan dalam peranti ini. Semak tetapan storan pelayar.</p>`}
+    </div>
+    <button class="btn pri" data-x data-focus>OK</button>
+  `, m => m.querySelector('[data-x]').addEventListener('click', closeModal));
+}
+
+function finish(method, paid, wallet){
+  const {sale, stored} = createOrder({method, paid, wallet});
+  paidModal(sale, stored, 'Pesanan dah masuk ke giliran Dapur.');
+}
+
+function sendLater(){
+  const {sale, stored} = createOrder(null);
+  openModal(`
+    <div class="done">
+      <div class="lbl">Dihantar ke dapur</div>
+      <div class="big num">${fmtNo(sale.no)}</div>
+      <p style="margin:6px 0 0"><span class="pill due">Belum bayar</span> <b class="num">${RM(sale.total)}</b></p>
+      <p class="note" style="margin:10px 0 0">Kutip bayaran bila makanan siap. Pesanan ini ada dalam senarai "Belum bayar" di skrin Jualan.</p>
+      ${stored ? '' : `<p class="note" style="color:var(--accent)">Pesanan tak dapat disimpan dalam peranti ini.</p>`}
+    </div>
+    <button class="btn pri" data-x data-focus>OK</button>
+  `, m => m.querySelector('[data-x]').addEventListener('click', closeModal));
+}
+
+function settle(sale, method, paid, handOver, wallet){
+  const now = new Date();
+  sale.isPaid = true; sale.method = method; sale.wallet = wallet || null; sale.paid = paid; sale.change = paid - sale.total; sale.paidAt = now.toISOString();
+  if(handOver){ sale.status = 'diambil'; sale.pickedAt = now.toISOString(); }
+  const stored = save(K.sales, sales);
+  renderUnpaid(); updateBadge();
+  if(!$('view-kitchen').hidden) renderKitchen();
+  if(!$('view-report').hidden) renderReport();
+  paidModal(sale, stored, handOver ? 'Serahkan makanan kepada pelanggan.' : (statusOf(sale)==='siap' ? 'Makanan dah siap, boleh serah.' : 'Pesanan masih disediakan di dapur.'));
+}
+
+function renderUnpaid(){
+  const list = todaySales().filter(x => !x.void && !isPaidOf(x));
+  const box = $('unpaid');
+  if(!list.length){ box.hidden = true; box.innerHTML = ''; return; }
+  box.hidden = false;
+  box.innerHTML = `<span class="lbl">Belum bayar</span>` + list.map(x =>
+    `<button data-payo="${x.id}">${fmtNo(x.no)} · <b class="num">${RM(x.total)}</b> · ${statusOf(x)==='siap' ? 'Siap' : 'Disediakan'}</button>`).join('');
+}
+$('unpaid').addEventListener('click', e => {
+  const b = e.target.closest('[data-payo]'); if(!b) return;
+  const sl = sales.find(x=>x.id===b.dataset.payo); openPay(sl, statusOf(sl)==='siap');
+});
+
+/* ---------- kitchen queue ---------- */
+const LATE_MIN = 10;
+let kStation = 'Semua';
+const stOf = i => i.station || 'Burger';
+const statusOf = s => s.status || 'diambil'; // jualan lama tanpa status dianggap selesai
+const queueOf = st => todaySales().filter(s => !s.void && statusOf(s) === st);
+function ageMin(s){ return Math.max(0, Math.floor((Date.now() - new Date(s.time).getTime())/60000)); }
+function updateBadge(){ const n = queueOf('baru').length; $('kBadge').textContent = n; $('kBadge').hidden = !n; }
+
+function qCard(s, ready){
+  const age = ageMin(s), late = !ready && age >= LATE_MIN;
+  const show = i => ready || kStation==='Semua' || stOf(i)===kStation;
+  return `<article class="qcard ${ready?'ready':''} ${late?'late':''}">
+    <div class="qc-head"><span class="on num">${fmtNo(s.no)}${isPaidOf(s) ? '' : ' <span class="pill due" style="vertical-align:middle">Belum bayar</span>'}</span><span class="age num">${ready ? 'Siap' : (age < 1 ? 'Baru masuk' : age + ' min')}</span></div>
+    <ul class="qitems">${s.items.map((i,idx) => !show(i) ? '' : `
+      <li><label class="${i.done||ready?'done':''}">
+        <input type="checkbox" id="k-${s.id}-${idx}" data-k="${s.id}" data-ix="${idx}" ${i.done||ready?'checked':''} ${ready?'disabled':''}>
+        <span><span class="qn">${i.qty}× ${esc(i.label)}</span>${kStation==='Semua' && !ready ? ` <span class="pill">${esc(stOf(i))}</span>` : ''}${i.addons.length ? `<span class="qa">+ ${i.addons.map(esc).join(', ')}</span>` : ''}${i.notes && i.notes.length ? `<span class="qnote">⚠ ${i.notes.map(esc).join(', ')}</span>` : ''}</span>
+      </label></li>`).join('')}</ul>
+    <div class="qc-foot">${ready
+      ? (isPaidOf(s) ? `<button class="btn sec" data-pick="${s.id}">Dah diambil</button>` : `<button class="btn pri" data-paypick="${s.id}">Bayar &amp; serah · <span class="num">${RM(s.total)}</span></button>`)
+      : `<button class="btn okb" data-ready="${s.id}">${kStation==='Semua' ? 'Siap semua' : 'Siap (' + esc(kStation) + ')'}</button>`}</div>
+  </article>`;
+}
+function renderKitchen(){
+  const all = queueOf('baru'), ready = queueOf('siap');
+  const stations = ['Semua', ...[...new Set(all.flatMap(s=>s.items.map(stOf)))].sort()];
+  if(!stations.includes(kStation)) kStation = 'Semua';
+  const pend = kStation==='Semua' ? all : all.filter(s => s.items.some(i => stOf(i)===kStation && !i.done));
+  const cnt = st => st==='Semua' ? all.length : all.filter(s => s.items.some(i => stOf(i)===st && !i.done)).length;
+  $('view-kitchen').innerHTML = `
+    <div class="cats" aria-label="Stesen">${stations.map(st=>`<button data-st="${esc(st)}" aria-pressed="${st===kStation}">${esc(st)} <span class="num">(${cnt(st)})</span></button>`).join('')}</div>
+    <div class="qhead"><h2>Sedang disediakan <span class="num">(${pend.length})</span></h2>
+      <span class="note">Pilih stesen untuk tengok item stesen itu sahaja. Kad jadi merah selepas ${LATE_MIN} minit.</span></div>
+    ${pend.length ? `<div class="queue">${pend.map(s=>qCard(s,false)).join('')}</div>`
+      : `<div class="qempty">Tiada pesanan menunggu. Pesanan baru akan muncul di sini sebaik sahaja dibayar.</div>`}
+    <div class="qhead" style="margin-top:26px"><h2>Siap, tunggu diambil <span class="num">(${ready.length})</span></h2></div>
+    ${ready.length ? `<div class="queue">${ready.map(s=>qCard(s,true)).join('')}</div>`
+      : `<div class="qempty">Belum ada pesanan yang siap.</div>`}`;
+  updateBadge();
+}
+$('view-kitchen').addEventListener('change', e => {
+  const cb = e.target.closest('[data-k]'); if(!cb) return;
+  const s = sales.find(x=>x.id===cb.dataset.k); s.items[+cb.dataset.ix].done = cb.checked;
+  save(K.sales, sales);
+  if(s.items.every(i=>i.done)){ s.status='siap'; s.readyAt=new Date().toISOString(); save(K.sales, sales); toast(fmtNo(s.no)+' siap'); renderKitchen(); renderUnpaid(); }
+  else if(kStation!=='Semua' && s.items.filter(i=>stOf(i)===kStation).every(i=>i.done)){ toast(fmtNo(s.no)+': '+kStation+' siap'); renderKitchen(); }
+  else cb.closest('label').classList.toggle('done', cb.checked);
+});
+$('view-kitchen').addEventListener('click', e => {
+  const r = e.target.closest('[data-ready]'), p = e.target.closest('[data-pick]'), pp = e.target.closest('[data-paypick]');
+  if(pp){ openPay(sales.find(x=>x.id===pp.dataset.paypick), true); return; }
+  const stb = e.target.closest('[data-st]'); if(stb){ kStation = stb.dataset.st; renderKitchen(); return; }
+  if(r){ const s = sales.find(x=>x.id===r.dataset.ready);
+    s.items.forEach(i=>{ if(kStation==='Semua' || stOf(i)===kStation) i.done=true; });
+    if(s.items.every(i=>i.done)){ s.status='siap'; s.readyAt=new Date().toISOString(); toast(fmtNo(s.no)+' siap'); }
+    else toast(fmtNo(s.no)+': '+kStation+' siap');
+    save(K.sales, sales); renderKitchen(); renderUnpaid(); }
+  if(p){ const s = sales.find(x=>x.id===p.dataset.pick); s.status='diambil'; s.pickedAt=new Date().toISOString(); save(K.sales, sales); renderKitchen(); }
+});
+setInterval(() => { if(!$('view-kitchen').hidden) renderKitchen(); }, 30000);
+
+/* ---------- report ---------- */
+function renderReport(){
+  const list = todaySales(), live = list.filter(s=>!s.void && isPaidOf(s)), due = list.filter(s=>!s.void && !isPaidOf(s));
+  const dueT = due.reduce((a,x)=>a+x.total,0);
+  const sum = f => live.filter(f).reduce((s,x)=>s+x.total,0);
+  const total = sum(()=>true), cashT = sum(s=>s.method==='Tunai'), ew = sum(s=>s.method!=='Tunai');
+  const counts = {};
+  list.filter(s=>!s.void).forEach(s => s.items.forEach(i => { counts[i.label] = (counts[i.label]||0) + i.qty; }));
+  const top = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const byM = {}; live.forEach(x => { const k = methodName(x); byM[k] = (byM[k]||0) + x.total; });
+  const mlist = Object.entries(byM).sort((a,b)=>b[1]-a[1]); const mmax = mlist.length ? mlist[0][1] : 1;
+  const max = top.length ? top[0][1] : 1;
+  const d = new Date();
+  $('view-report').innerHTML = `
+    <div class="tiles">
+      <div class="tile main"><span class="lbl">Jualan hari ini</span><b class="num">${RM(total)}</b></div>
+      <div class="tile"><span class="lbl">Pesanan dibayar</span><b class="num">${live.length}</b></div>
+      <div class="tile"><span class="lbl">Tunai</span><b class="num">${RM(cashT)}</b></div>
+      <div class="tile"><span class="lbl">E-Wallet / QR</span><b class="num">${RM(ew)}</b></div>
+      <div class="tile"><span class="lbl" style="color:var(--accent)">Belum bayar (${due.length})</span><b class="num" style="color:var(--accent)">${RM(dueT)}</b></div>
+    </div>
+    <div class="two">
+      <div class="panel">
+        <h3>Senarai pesanan · ${d.toLocaleDateString('ms-MY',{weekday:'long',day:'numeric',month:'long'})}</h3>
+        ${list.length ? `<ul class="orders">${list.slice().reverse().map(s => `
+          <li class="${s.void?'voided':''}">
+            <span class="on num">${fmtNo(s.no)}</span>
+            <span class="od">${new Date(s.time).toLocaleTimeString('ms-MY',{hour:'2-digit',minute:'2-digit'})} · ${s.items.map(i=>esc(i.qty+'× '+i.label+(i.addons.length?' (+'+i.addons.join(', ')+')':'')+(i.notes&&i.notes.length?' [Nota: '+i.notes.join(', ')+']':''))).join('; ')}</span>
+            <span class="ot num">${RM(s.total)}</span>
+            <span class="ox">${isPaidOf(s) ? `<span class="pill">${esc(methodName(s))}</span>` : `<span class="pill due">Belum bayar</span>`}${s.void?'<span class="pill void">Dibatalkan</span>':`<button class="linkbtn" data-void="${s.id}">Batalkan</button>`}</span>
+          </li>`).join('')}</ul>`
+        : `<p class="empty">Belum ada jualan hari ini. Pesanan yang dibayar di skrin Jualan akan tersenarai di sini.</p>`}
+      </div>
+      <div class="panel">
+        <h3>Paling laris</h3>
+        ${top.length ? `<ul class="bars">${top.map(([n,c])=>`<li><span>${esc(n)}</span><b class="num">${c}</b><span class="bar"><i style="width:${Math.round(c/max*100)}%"></i></span></li>`).join('')}</ul>` : `<p class="note">Akan muncul selepas jualan pertama.</p>`}
+        <h3 style="margin-top:20px">Ikut kaedah bayaran</h3>
+        ${mlist.length ? `<ul class="bars">${mlist.map(([n,v])=>`<li><span>${esc(n)}</span><b class="num">${RM(v)}</b><span class="bar"><i style="width:${Math.round(v/mmax*100)}%;background:var(--gold)"></i></span></li>`).join('')}</ul>` : `<p class="note">Akan muncul selepas bayaran pertama.</p>`}
+      </div>
+    </div>`;
+}
+$('view-report').addEventListener('click', e => {
+  const b = e.target.closest('[data-void]'); if(!b) return;
+  const s = sales.find(x=>x.id===b.dataset.void);
+  if(b.dataset.confirm){ s.void = true; save(K.sales, sales); renderReport(); updateBadge(); renderUnpaid(); toast('Pesanan '+fmtNo(s.no)+' dibatalkan'); }
+  else { b.dataset.confirm = '1'; b.textContent = 'Tekan sekali lagi untuk batal'; }
+});
+
+/* ---------- menu & price editor ---------- */
+function renderMenuEditor(){
+  $('view-menu').innerHTML = `
+    <div class="panel">
+      <h3>Menu &amp; Harga</h3>
+      <p class="note" style="margin:0 0 12px">Tukar harga di sini bila harga baru mula 1 November. Matikan "Ada" untuk item yang habis.</p>
+      <div class="tblwrap"><table>
+        <thead><tr><th>Item</th><th>Harga (RM)</th><th>Ada</th></tr></thead>
+        <tbody>${CATS.map(c => `<tr><td class="catrow" colspan="3">${esc(c.name)}</td></tr>` + menu.filter(i=>i.cat===c.id).map(i => `
+          <tr><td>${esc(itemLabel(i))}</td>
+          <td><input type="number" id="p-${i.id}" data-p="${i.id}" min="0" step="0.10" value="${(i.price/100).toFixed(2)}" aria-label="Harga ${esc(itemLabel(i))}"></td>
+          <td><input type="checkbox" id="a-${i.id}" data-av="${i.id}" ${i.avail?'checked':''} aria-label="${esc(itemLabel(i))} ada"></td></tr>`).join('')).join('')}
+        </tbody></table></div>
+      <div class="bar-actions">
+        <button class="btn pri" id="saveMenu" style="flex:0 0 auto;padding-inline:22px">Simpan harga</button>
+        <button class="btn ghost" id="resetMenu">Kembali ke harga asal</button>
+        <span class="note" id="menuMsg"></span>
+      </div>
+    </div>`;
+}
+$('view-menu').addEventListener('click', e => {
+  if(e.target.id==='saveMenu'){
+    $('view-menu').querySelectorAll('[data-p]').forEach(inp => { const it = menu.find(i=>i.id===inp.dataset.p); const v = parseFloat(inp.value); if(!isNaN(v) && v>=0) it.price = SEN(v); });
+    $('view-menu').querySelectorAll('[data-av]').forEach(cb => { menu.find(i=>i.id===cb.dataset.av).avail = cb.checked; });
+    const ok = save(K.menu, menu);
+    $('menuMsg').textContent = ok ? 'Harga disimpan.' : 'Tak dapat simpan dalam peranti ini.';
+    renderMenu();
+  }
+  if(e.target.id==='resetMenu'){
+    const b = e.target;
+    if(b.dataset.confirm){ menu = DEFAULT_MENU.map(d=>({...d})); save(K.menu, menu); renderMenuEditor(); renderMenu(); toast('Harga asal dipulihkan'); }
+    else { b.dataset.confirm='1'; b.textContent='Tekan lagi untuk sahkan'; }
+  }
+});
+
+/* ---------- misc ---------- */
+let tt;
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.hidden=false; clearTimeout(tt); tt=setTimeout(()=>t.hidden=true,1600); }
+function net(){ const on = navigator.onLine; $('net').textContent = on ? 'Online' : 'Offline'; $('net').classList.toggle('off', !on); }
+window.addEventListener('online', net); window.addEventListener('offline', net); net();
+
+renderSale(); updateBadge();
+
+/* ---------- PWA: offline + storan kekal ---------- */
+if('serviceWorker' in navigator){ window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(()=>{}); }); }
+if(navigator.storage && navigator.storage.persist){ navigator.storage.persist().catch(()=>{}); }
+})();
+</script>
+</body>
+</html>
