@@ -56,6 +56,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--gold);outline-o
 .tabs button{border:0;background:transparent;padding:8px 16px;border-radius:999px;font-family:var(--f-label);font-weight:700;font-size:16px;letter-spacing:.5px;color:var(--ink-2)}
 .tabs button[aria-selected="true"]{background:var(--ink);color:var(--bg)}
 .net{font-family:var(--f-label);font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;padding:5px 10px;border-radius:999px;background:var(--ok-bg);color:var(--ok)}
+.net.sync{background:var(--surface-2);color:var(--ink-2)}
 .net.off{background:var(--warn-bg);color:var(--accent)}
 
 /* sale view */
@@ -225,7 +226,7 @@ td.catrow{font-family:var(--f-label);font-weight:700;font-size:15px;letter-spaci
     <button role="tab" id="tab-report" data-view="report" aria-selected="false">Laporan</button>
     <button role="tab" id="tab-menu" data-view="menu" aria-selected="false">Menu &amp; Harga</button>
   </nav>
-  <span class="net" id="net">Online</span>
+  <span class="net" id="net">Online</span><span class="net" id="syncPill" hidden></span>
 </header>
 
 <main>
@@ -359,7 +360,7 @@ const REMARKS = ['Tak nak sayur','Tak nak sos cili','Mayo sahaja','Kosong budak'
 const REMARKS_AIR = ['Kurang manis','Kurang ais','Tak nak ais'];
 
 /* ---------- storage (simpan dalam peranti ini) ---------- */
-const K = {menu:'aak_menu_v1', sales:'aak_sales_v1'};
+const K = {menu:'aak_menu_v1', sales:'aak_sales_v1', cfg:'aak_cfg_v1'};
 function load(k, fb){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : fb; }catch(e){ return fb; } }
 function save(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ return false; } }
 
@@ -580,9 +581,11 @@ function createOrder(pay){
     isPaid: !!pay, paidAt: pay ? now.toISOString() : null,
     items: cart.map(c=>({label:c.label, addons:c.addons.map(a=>a.name), notes:c.notes||[], unit:c.unit, qty:c.qty, station:c.station||'Burger', done:false})), void:false, synced:false,
     status:'baru'};
+  sale.rev = 1;
   sales.push(sale);
   const stored = save(K.sales, sales);
   cart = []; renderCart(); updateBadge(); renderUnpaid();
+  queueSync();
   return {sale, stored};
 }
 
@@ -623,7 +626,9 @@ function settle(sale, method, paid, handOver, wallet){
   const now = new Date();
   sale.isPaid = true; sale.method = method; sale.wallet = wallet || null; sale.paid = paid; sale.change = paid - sale.total; sale.paidAt = now.toISOString();
   if(handOver){ sale.status = 'diambil'; sale.pickedAt = now.toISOString(); }
+  touch(sale);
   const stored = save(K.sales, sales);
+  queueSync();
   renderUnpaid(); updateBadge();
   if(!$('view-kitchen').hidden) renderKitchen();
   if(!$('view-report').hidden) renderReport();
@@ -767,7 +772,7 @@ $('view-report').addEventListener('click', e => {
     rDay = n===0 ? null : shiftDay(cur, n); if(rDay && rDay >= todayKey()) rDay = null; renderReport(); return; }
   const b = e.target.closest('[data-void]'); if(!b) return;
   const s = sales.find(x=>x.id===b.dataset.void);
-  if(b.dataset.confirm){ s.void = true; save(K.sales, sales); renderReport(); updateBadge(); renderUnpaid(); toast('Pesanan '+fmtNo(s.no)+' dibatalkan'); }
+  if(b.dataset.confirm){ s.void = true; touch(s); save(K.sales, sales); queueSync(); renderReport(); updateBadge(); renderUnpaid(); toast('Pesanan '+fmtNo(s.no)+' dibatalkan'); }
   else { b.dataset.confirm = '1'; b.textContent = 'Tekan sekali lagi untuk batal'; }
 });
 
@@ -789,9 +794,30 @@ function renderMenuEditor(){
         <button class="btn ghost" id="resetMenu">Kembali ke harga asal</button>
         <span class="note" id="menuMsg"></span>
       </div>
+    </div>
+    <div class="panel" style="margin-top:18px">
+      <h3>Sync ke Google Sheets</h3>
+      <p class="note" style="margin:0 0 12px">Tampal link Web App dari Google Apps Script. Jualan akan dihantar ke Sheets setiap kali ada internet. Bila offline, jualan tunggu dan dihantar kemudian.</p>
+      <label class="lbl" for="syncUrl" style="display:block;margin-bottom:6px">Link Web App</label>
+      <input class="rmtext" id="syncUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec" value="${esc(cfg.url||'')}" autocomplete="off">
+      <div class="bar-actions">
+        <button class="btn pri" id="saveSync" style="flex:0 0 auto;padding-inline:22px">Simpan link</button>
+        <button class="btn ghost" id="syncNowBtn">Sync sekarang</button>
+        <span class="note" id="syncMsg">${esc(syncStatusText())}</span>
+      </div>
     </div>`;
 }
 $('view-menu').addEventListener('click', e => {
+  if(e.target.id==='saveSync'){
+    const v = $('syncUrl').value.trim();
+    if(v && !/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(v)){ $('syncMsg').textContent = 'Link tak betul. Ia mesti bermula dengan https://script.google.com/macros/s/ dan berakhir dengan /exec'; return; }
+    cfg.url = v; save(K.cfg, cfg);
+    $('syncMsg').textContent = v ? 'Link disimpan. Sedang sync…' : 'Sync dimatikan.';
+    if(v) syncNow(true);
+    updateSyncPill();
+    return;
+  }
+  if(e.target.id==='syncNowBtn'){ syncNow(true); return; }
   if(e.target.id==='saveMenu'){
     $('view-menu').querySelectorAll('[data-p]').forEach(inp => { const it = menu.find(i=>i.id===inp.dataset.p); const v = parseFloat(inp.value); if(!isNaN(v) && v>=0) it.price = SEN(v); });
     $('view-menu').querySelectorAll('[data-av]').forEach(cb => { menu.find(i=>i.id===cb.dataset.av).avail = cb.checked; });
@@ -806,17 +832,64 @@ $('view-menu').addEventListener('click', e => {
   }
 });
 
+/* ---------- sync ke Google Sheets ---------- */
+let cfg = load(K.cfg, {}); if(!cfg || typeof cfg!=='object') cfg = {};
+let syncing = false, syncTimer = null, lastErr = '';
+function touch(s){ s.rev = (s.rev||1) + 1; s.synced = false; }
+const pending = () => sales.filter(s => !s.synced);
+function syncStatusText(){
+  if(!cfg.url) return 'Belum disambung ke Google Sheets.';
+  const n = pending().length;
+  const last = cfg.lastSync ? 'Sync terakhir: ' + new Date(cfg.lastSync).toLocaleString('ms-MY',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) + '. ' : '';
+  return last + (n ? n + ' pesanan belum dihantar.' : 'Semua jualan dah dihantar.') + (lastErr ? ' Ralat: ' + lastErr : '');
+}
+function updateSyncPill(){
+  const pl = $('syncPill');
+  if(!cfg.url){ pl.hidden = true; return; }
+  const n = pending().length; pl.hidden = false;
+  pl.textContent = syncing ? 'Sync…' : (n ? n + ' belum sync' : 'Sync ✓');
+  pl.className = 'net ' + (n && !syncing ? 'sync' : '');
+  const m = document.getElementById('syncMsg'); if(m) m.textContent = syncStatusText();
+}
+function queueSync(){ updateSyncPill(); clearTimeout(syncTimer); syncTimer = setTimeout(() => syncNow(false), 1500); }
+const slim = s => ({id:s.id, day:s.day, no:s.no, time:s.time, isPaid:isPaidOf(s), method:s.method||'', wallet:s.wallet||'',
+  total:s.total, paid:s.paid||0, change:s.change||0, void:!!s.void, paidAt:s.paidAt||'',
+  items:s.items.map(i=>({label:i.label, qty:i.qty, unit:i.unit, addons:i.addons||[], notes:i.notes||[], station:i.station||''}))});
+async function syncNow(manual){
+  if(!cfg.url || syncing) return;
+  if(!navigator.onLine){ if(manual){ lastErr=''; const m=document.getElementById('syncMsg'); if(m) m.textContent='Tiada internet. Jualan akan dihantar bila online.'; } return; }
+  const batch = pending().slice(0, 40); if(!batch.length){ lastErr=''; cfg.lastSync = new Date().toISOString(); save(K.cfg,cfg); updateSyncPill(); return; }
+  const revs = Object.fromEntries(batch.map(s=>[s.id, s.rev||1]));
+  syncing = true; updateSyncPill();
+  try{
+    const res = await fetch(cfg.url, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({sales: batch.map(slim)})});
+    const j = await res.json();
+    if(!j.ok) throw new Error(j.error || 'Sheets menolak data');
+    batch.forEach(s => { if((s.rev||1) === revs[s.id]) s.synced = true; });
+    save(K.sales, sales); lastErr = ''; cfg.lastSync = new Date().toISOString(); save(K.cfg, cfg);
+    syncing = false; updateSyncPill();
+    if(manual) toast('Sync berjaya: ' + batch.length + ' pesanan');
+    if(pending().length) setTimeout(() => syncNow(false), 500);
+  }catch(err){
+    syncing = false; lastErr = 'tak dapat hubungi Google Sheets. Semak link dan internet.'; updateSyncPill();
+    if(manual) toast('Sync gagal');
+  }
+}
+window.addEventListener('online', () => syncNow(false));
+setInterval(() => syncNow(false), 60000);
+
 /* ---------- misc ---------- */
 let tt;
 function toast(msg){ const t=$('toast'); t.textContent=msg; t.hidden=false; clearTimeout(tt); tt=setTimeout(()=>t.hidden=true,1600); }
 function net(){ const on = navigator.onLine; $('net').textContent = on ? 'Online' : 'Offline'; $('net').classList.toggle('off', !on); }
 window.addEventListener('online', net); window.addEventListener('offline', net); net();
 
-renderSale(); updateBadge();
+renderSale(); updateBadge(); updateSyncPill(); setTimeout(() => syncNow(false), 2000);
 
 /* ---------- PWA: offline + storan kekal ---------- */
 if('serviceWorker' in navigator){ window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(()=>{}); }); }
 if(navigator.storage && navigator.storage.persist){ navigator.storage.persist().catch(()=>{}); }
+
 })();
 </script>
 </body>
