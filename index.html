@@ -143,6 +143,11 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--gold);outline-o
 .pill.void{background:var(--warn-bg);color:var(--accent)}
 .orders li.voided .ot,.orders li.voided .od{text-decoration:line-through;opacity:.6}
 .linkbtn{border:0;background:none;padding:4px 0;font-size:13px;font-weight:600;color:var(--accent);text-decoration:underline}
+.daybar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.daybar .navb{width:44px;height:44px;border-radius:10px;border:2px solid var(--line);background:var(--surface);font-size:20px;font-weight:700}
+.daybar input{height:44px;padding:0 12px;border-radius:10px;border:2px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-weight:600}
+.daybar .dname{font-family:var(--f-label);font-weight:700;font-size:20px;margin-left:6px}
+.daybar .navb[disabled]{opacity:.35;cursor:not-allowed}
 .bars{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
 .bars li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 8px;font-size:14px}
 .bars .bar{grid-column:1/-1;height:8px;border-radius:4px;background:var(--surface-2);overflow:hidden}
@@ -217,7 +222,7 @@ td.catrow{font-family:var(--f-label);font-weight:700;font-size:15px;letter-spaci
   <nav class="tabs" role="tablist" aria-label="Paparan">
     <button role="tab" id="tab-sale" data-view="sale" aria-selected="true">Jualan</button>
     <button role="tab" id="tab-kitchen" data-view="kitchen" aria-selected="false">Dapur <span class="badge num" id="kBadge" hidden>0</span></button>
-    <button role="tab" id="tab-report" data-view="report" aria-selected="false">Hari Ini</button>
+    <button role="tab" id="tab-report" data-view="report" aria-selected="false">Laporan</button>
     <button role="tab" id="tab-menu" data-view="menu" aria-selected="false">Menu &amp; Harga</button>
   </nav>
   <span class="net" id="net">Online</span>
@@ -701,8 +706,12 @@ $('view-kitchen').addEventListener('click', e => {
 setInterval(() => { if(!$('view-kitchen').hidden) renderKitchen(); }, 30000);
 
 /* ---------- report ---------- */
+let rDay = null; // tarikh laporan (YYYY-MM-DD), null = hari ini
+const dayKeyOf = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const shiftDay = (k, n) => { const [y,m,dd] = k.split('-').map(Number); const d = new Date(y, m-1, dd + n); return dayKeyOf(d); };
 function renderReport(){
-  const list = todaySales(), live = list.filter(s=>!s.void && isPaidOf(s)), due = list.filter(s=>!s.void && !isPaidOf(s));
+  const day = rDay || todayKey(), isToday = day === todayKey();
+  const list = sales.filter(x => x.day === day), live = list.filter(s=>!s.void && isPaidOf(s)), due = list.filter(s=>!s.void && !isPaidOf(s));
   const dueT = due.reduce((a,x)=>a+x.total,0);
   const sum = f => live.filter(f).reduce((s,x)=>s+x.total,0);
   const total = sum(()=>true), cashT = sum(s=>s.method==='Tunai'), ew = sum(s=>s.method!=='Tunai');
@@ -712,10 +721,18 @@ function renderReport(){
   const byM = {}; live.forEach(x => { const k = methodName(x); byM[k] = (byM[k]||0) + x.total; });
   const mlist = Object.entries(byM).sort((a,b)=>b[1]-a[1]); const mmax = mlist.length ? mlist[0][1] : 1;
   const max = top.length ? top[0][1] : 1;
-  const d = new Date();
+  const [yy,mm,dd0] = day.split('-').map(Number); const d = new Date(yy, mm-1, dd0);
+  const dName = d.toLocaleDateString('ms-MY',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   $('view-report').innerHTML = `
+    <div class="daybar">
+      <button class="navb" data-day="-1" aria-label="Hari sebelum">‹</button>
+      <input type="date" id="rDate" value="${day}" max="${todayKey()}" aria-label="Pilih tarikh">
+      <button class="navb" data-day="1" aria-label="Hari selepas" ${isToday?'disabled':''}>›</button>
+      ${isToday ? '' : '<button class="btn ghost" data-day="0">Hari ini</button>'}
+      <span class="dname">${esc(dName)}</span>
+    </div>
     <div class="tiles">
-      <div class="tile main"><span class="lbl">Jualan hari ini</span><b class="num">${RM(total)}</b></div>
+      <div class="tile main"><span class="lbl">${isToday ? 'Jualan hari ini' : 'Jumlah jualan'}</span><b class="num">${RM(total)}</b></div>
       <div class="tile"><span class="lbl">Pesanan dibayar</span><b class="num">${live.length}</b></div>
       <div class="tile"><span class="lbl">Tunai</span><b class="num">${RM(cashT)}</b></div>
       <div class="tile"><span class="lbl">E-Wallet / QR</span><b class="num">${RM(ew)}</b></div>
@@ -723,7 +740,7 @@ function renderReport(){
     </div>
     <div class="two">
       <div class="panel">
-        <h3>Senarai pesanan · ${d.toLocaleDateString('ms-MY',{weekday:'long',day:'numeric',month:'long'})}</h3>
+        <h3>Senarai pesanan</h3>
         ${list.length ? `<ul class="orders">${list.slice().reverse().map(s => `
           <li class="${s.void?'voided':''}">
             <span class="on num">${fmtNo(s.no)}</span>
@@ -731,7 +748,7 @@ function renderReport(){
             <span class="ot num">${RM(s.total)}</span>
             <span class="ox">${isPaidOf(s) ? `<span class="pill">${esc(methodName(s))}</span>` : `<span class="pill due">Belum bayar</span>`}${s.void?'<span class="pill void">Dibatalkan</span>':`<button class="linkbtn" data-void="${s.id}">Batalkan</button>`}</span>
           </li>`).join('')}</ul>`
-        : `<p class="empty">Belum ada jualan hari ini. Pesanan yang dibayar di skrin Jualan akan tersenarai di sini.</p>`}
+        : `<p class="empty">${isToday ? 'Belum ada jualan hari ini. Pesanan yang dibayar di skrin Jualan akan tersenarai di sini.' : 'Tiada jualan direkodkan pada tarikh ini di peranti ini.'}</p>`}
       </div>
       <div class="panel">
         <h3>Paling laris</h3>
@@ -741,7 +758,13 @@ function renderReport(){
       </div>
     </div>`;
 }
+$('view-report').addEventListener('change', e => {
+  if(e.target.id==='rDate' && e.target.value){ const v = e.target.value; rDay = v > todayKey() ? todayKey() : v; renderReport(); }
+});
 $('view-report').addEventListener('click', e => {
+  const db = e.target.closest('[data-day]');
+  if(db){ const n = +db.dataset.day; const cur = rDay || todayKey();
+    rDay = n===0 ? null : shiftDay(cur, n); if(rDay && rDay >= todayKey()) rDay = null; renderReport(); return; }
   const b = e.target.closest('[data-void]'); if(!b) return;
   const s = sales.find(x=>x.id===b.dataset.void);
   if(b.dataset.confirm){ s.void = true; save(K.sales, sales); renderReport(); updateBadge(); renderUnpaid(); toast('Pesanan '+fmtNo(s.no)+' dibatalkan'); }

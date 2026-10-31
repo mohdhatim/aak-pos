@@ -1,6 +1,6 @@
 // Service worker: simpan fail app dalam peranti supaya boleh dibuka tanpa internet.
 // Tukar nombor versi ini setiap kali index.html dikemas kini, supaya peranti ambil versi baru.
-const VERSION = 'aak-pos-v2';
+const VERSION = 'aak-pos-v3';
 const APP_FILES = [
   './',
   './index.html',
