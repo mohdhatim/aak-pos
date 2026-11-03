@@ -2,7 +2,7 @@
 // - Ada internet: ambil index.html terbaru dari GitHub (supaya update terus nampak)
 // - Tiada internet: guna salinan yang tersimpan dalam peranti
 // Tukar nombor versi ini setiap kali fail app dikemas kini.
-const VERSION = 'aak-pos-v9';
+const VERSION = 'aak-pos-v10';
 const APP_FILES = [
   './',
   './index.html',

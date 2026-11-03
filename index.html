@@ -840,18 +840,62 @@ $('view-kitchen').addEventListener('click', e => {
 });
 setInterval(() => { if(!$('view-kitchen').hidden) renderKitchen(); }, 30000);
 
+/* ---------- data dari Google Sheet (laporan dua hala) ---------- */
+const remote = {}; // 'YYYY-MM' -> {sales, exp, at, loading, err}
+function mergedSales(){
+  const ids = new Set(sales.map(x=>x.id));
+  return sales.concat(Object.values(remote).flatMap(r => r.sales || []).filter(x => !ids.has(x.id)));
+}
+function mergedExp(){
+  const ids = new Set(expenses.map(x=>x.id));
+  return expenses.concat(Object.values(remote).flatMap(r => r.exp || []).filter(x => !ids.has(x.id)));
+}
+function remoteNote(mon){
+  if(!cfg.url) return '<span class="note">Data dari peranti ini sahaja. Sambung Google Sheets untuk lihat data semua peranti.</span>';
+  const r = remote[mon];
+  if(!r || r.loading) return '<span class="note">Memuatkan data dari Google Sheet…</span>';
+  if(r.err) return `<span class="note" style="color:var(--accent)">${esc(r.err)}</span> <button class="linkbtn" data-reload="${mon}">Cuba lagi</button>`;
+  return `<span class="note">Termasuk data Google Sheet · dikemas kini ${new Date(r.at).toLocaleTimeString('ms-MY',{hour:'2-digit',minute:'2-digit'})}</span> <button class="linkbtn" data-reload="${mon}">Muat semula</button>`;
+}
+async function ensureRemote(mon, force){
+  if(!cfg.url) return;
+  const r = remote[mon];
+  if(r && (r.loading || (!force && Date.now() - r.at < 60000))) return;
+  if(!navigator.onLine){ remote[mon] = Object.assign(r || {}, {loading:false, at: Date.now(), err: 'Offline: tunjuk data peranti ini sahaja.'}); return; }
+  remote[mon] = Object.assign(r || {}, {loading:true});
+  try{
+    const res = await fetch(cfg.url + '?action=report&from=' + mon + '-01&to=' + mon + '-31');
+    const j = await res.json();
+    if(!j.ok) throw new Error(j.error || 'ralat');
+    remote[mon] = {
+      at: Date.now(), loading:false, err:'',
+      sales: (j.sales||[]).map(x => ({id:x.id, day:x.day, no:x.no, time: x.day + 'T' + (x.time && /^\d\d:\d\d$/.test(x.time) ? x.time : '00:00') + ':00',
+        isPaid: x.isPaid, method: x.method || null, wallet: x.wallet || null, total: x.total, prepaid: x.collected, void: x.void,
+        items: x.items.map(i => ({label:i.label, qty:i.qty, unit:i.unit, addons:i.addons||[], notes:i.notes||[], station:i.station, done:true})),
+        status:'diambil', remote:true})),
+      exp: (j.expenses||[]).map(x => ({id:x.id, day:x.day, time:x.time, item:x.item, cat:x.cat, pay:x.pay, amount:x.amount, void:x.void, remote:true}))
+    };
+  }catch(e){
+    remote[mon] = Object.assign(remote[mon] || {}, {loading:false, at: Date.now(), err: 'Tak dapat ambil data dari Google Sheet. Kemas kini Apps Script ke versi baru, atau semak internet.'});
+  }
+  if(!$('view-report').hidden) renderReport();
+  if(!$('view-exp').hidden) renderExp();
+}
+
 /* ---------- report ---------- */
 let rDay = null; // tarikh laporan (YYYY-MM-DD), null = hari ini
 const dayKeyOf = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 const shiftDay = (k, n) => { const [y,m,dd] = k.split('-').map(Number); const d = new Date(y, m-1, dd + n); return dayKeyOf(d); };
 function renderReport(){
   const day = rDay || todayKey(), isToday = day === todayKey();
-  const list = sales.filter(x => x.day === day), live = list.filter(s=>collectedOf(s)>0), due = list.filter(s=>dueOf(s)>0);
+  ensureRemote(day.slice(0,7));
+  const all = mergedSales();
+  const list = all.filter(x => x.day === day).sort((a,b) => (a.no||0) - (b.no||0)), live = list.filter(s=>collectedOf(s)>0), due = list.filter(s=>dueOf(s)>0);
   const dueT = due.reduce((a,x)=>a+dueOf(x),0);
   const sum = f => live.filter(f).reduce((s,x)=>s+collectedOf(x),0);
   const expT = expTotal(e => e.day === day);
   const mon = day.slice(0,7);
-  const monSales = sales.filter(x => x.day && x.day.slice(0,7) === mon).reduce((a,x)=>a+collectedOf(x),0);
+  const monSales = all.filter(x => x.day && x.day.slice(0,7) === mon).reduce((a,x)=>a+collectedOf(x),0);
   const monExp = expTotal(e => e.day.slice(0,7) === mon);
   const pays = live.flatMap(paymentsOf);
   const total = sum(()=>true), cashT = pays.filter(x=>x.method==='Tunai').reduce((a,x)=>a+x.amt,0), ew = pays.filter(x=>x.method!=='Tunai').reduce((a,x)=>a+x.amt,0);
@@ -871,6 +915,7 @@ function renderReport(){
       ${isToday ? '' : '<button class="btn ghost" data-day="0">Hari ini</button>'}
       <span class="dname">${esc(dName)}</span>
     </div>
+    <div style="margin:-6px 0 14px">${remoteNote(day.slice(0,7))}</div>
     <div class="tiles">
       <div class="tile main"><span class="lbl">${isToday ? 'Jualan hari ini' : 'Jumlah jualan'}</span><b class="num">${RM(total)}</b></div>
       <div class="tile"><span class="lbl">Pesanan dibayar</span><b class="num">${live.length}</b></div>
@@ -878,7 +923,7 @@ function renderReport(){
       <div class="tile"><span class="lbl">E-Wallet / QR</span><b class="num">${RM(ew)}</b></div>
       <div class="tile"><span class="lbl" style="color:var(--accent)">Belum bayar (${due.length})</span><b class="num" style="color:var(--accent)">${RM(dueT)}</b></div>
     </div>
-    ${pnlTiles('Hari ini', total, expT)}
+    ${pnlTiles(isToday ? 'Hari ini' : d.toLocaleDateString('ms-MY',{day:'numeric',month:'short'}), total, expT)}
     ${pnlTiles('Bulan ' + d.toLocaleDateString('ms-MY',{month:'long',year:'numeric'}), monSales, monExp)}
     <div class="two">
       <div class="panel">
@@ -888,7 +933,7 @@ function renderReport(){
             <span class="on num">${fmtNo(s.no)}</span>
             <span class="od">${new Date(s.time).toLocaleTimeString('ms-MY',{hour:'2-digit',minute:'2-digit'})} · ${s.items.map(i=>esc(i.qty+'× '+i.label+(i.addons.length?' (+'+i.addons.join(', ')+')':'')+(i.notes&&i.notes.length?' [Nota: '+i.notes.join(', ')+']':''))).join('; ')}</span>
             <span class="ot num">${RM(s.total)}</span>
-            <span class="ox">${isPaidOf(s) ? `<span class="pill">${esc(methodName(s))}</span>` : `<span class="pill due">Belum bayar</span>`}${s.void?'<span class="pill void">Dibatalkan</span>':`<button class="linkbtn" data-void="${s.id}">Batalkan</button>`}</span>
+            <span class="ox">${isPaidOf(s) ? `<span class="pill">${esc(methodName(s))}</span>` : `<span class="pill due">Belum bayar</span>`}${s.void?'<span class="pill void">Dibatalkan</span>':(s.remote ? '<span class="pill">Dari Sheet</span>' : `<button class="linkbtn" data-void="${s.id}">Batalkan</button>`)}</span>
           </li>`).join('')}</ul>`
         : `<p class="empty">${isToday ? 'Belum ada jualan hari ini. Pesanan yang dibayar di skrin Jualan akan tersenarai di sini.' : 'Tiada jualan direkodkan pada tarikh ini di peranti ini.'}</p>`}
       </div>
@@ -904,6 +949,7 @@ $('view-report').addEventListener('change', e => {
   if(e.target.id==='rDate' && e.target.value){ const v = e.target.value; rDay = v > todayKey() ? todayKey() : v; renderReport(); }
 });
 $('view-report').addEventListener('click', e => {
+  const rl = e.target.closest('[data-reload]'); if(rl){ ensureRemote(rl.dataset.reload, true); renderReport(); return; }
   const db = e.target.closest('[data-day]');
   if(db){ const n = +db.dataset.day; const cur = rDay || todayKey();
     rDay = n===0 ? null : shiftDay(cur, n); if(rDay && rDay >= todayKey()) rDay = null; renderReport(); return; }
@@ -972,7 +1018,7 @@ $('view-menu').addEventListener('click', e => {
 /* ---------- belanja (perbelanjaan) ---------- */
 const EXP_CATS = ['Bahan mentah','Minuman','Pembungkusan','Gas / minyak','Sewa / utiliti','Gaji','Lain-lain'];
 const EXP_PAY = ['Tunai','Bank / QR','Kad'];
-const expTotal = f => expenses.filter(e => !e.void && f(e)).reduce((a,e)=>a+e.amount,0);
+const expTotal = f => mergedExp().filter(e => !e.void && f(e)).reduce((a,e)=>a+e.amount,0);
 function pnlTiles(label, rev, exp){
   const pr = rev - exp;
   return `<div class="pnl">
@@ -984,12 +1030,14 @@ function pnlTiles(label, rev, exp){
 let eDay = null, eCat = EXP_CATS[0], ePay = EXP_PAY[0];
 function renderExp(){
   const day = eDay || todayKey();
-  const list = expenses.filter(e => e.day === day).slice().reverse();
-  const rev = sales.filter(x => x.day === day).reduce((a,x)=>a+collectedOf(x),0);
+  ensureRemote(day.slice(0,7));
+  const list = mergedExp().filter(e => e.day === day).sort((a,b) => (a.time < b.time ? 1 : -1));
+  const rev = mergedSales().filter(x => x.day === day).reduce((a,x)=>a+collectedOf(x),0);
   const mon = day.slice(0,7);
-  const monRev = sales.filter(x => x.day && x.day.slice(0,7) === mon).reduce((a,x)=>a+collectedOf(x),0);
+  const monRev = mergedSales().filter(x => x.day && x.day.slice(0,7) === mon).reduce((a,x)=>a+collectedOf(x),0);
   const [yy,mm,dd0] = day.split('-').map(Number); const d = new Date(yy, mm-1, dd0);
   $('view-exp').innerHTML = `
+    <div style="margin:0 0 12px">${remoteNote(day.slice(0,7))}</div>
     ${pnlTiles(day===todayKey() ? 'Hari ini' : d.toLocaleDateString('ms-MY',{day:'numeric',month:'short'}), rev, expTotal(e => e.day === day))}
     ${pnlTiles('Bulan ' + d.toLocaleDateString('ms-MY',{month:'long',year:'numeric'}), monRev, expTotal(e => e.day.slice(0,7) === mon))}
     <div class="two">
@@ -1012,13 +1060,14 @@ function renderExp(){
           <li class="${e.void?'voided':''}">
             <span class="en">${esc(e.item)}</span><span class="ea num">${RM(e.amount)}</span>
             <span class="em">${esc(e.cat)} · ${esc(e.pay)}${e.void ? ' · Dipadam' : ''}</span>
-            <span>${e.void ? '' : `<button class="linkbtn" data-edel="${e.id}">Padam</button>`}</span>
+            <span>${e.void || e.remote ? '' : `<button class="linkbtn" data-edel="${e.id}">Padam</button>`}</span>
           </li>`).join('')}</ul>`
         : `<p class="empty">Belum ada belanja direkodkan untuk tarikh ini.</p>`}
       </div>
     </div>`;
 }
 $('view-exp').addEventListener('click', e => {
+  const rl = e.target.closest('[data-reload]'); if(rl){ ensureRemote(rl.dataset.reload, true); renderExp(); return; }
   const c = e.target.closest('[data-ecat]'); if(c){ eCat = c.dataset.ecat; $('view-exp').querySelectorAll('[data-ecat]').forEach(x=>x.setAttribute('aria-pressed', String(x===c))); return; }
   const pb = e.target.closest('[data-epay]'); if(pb){ ePay = pb.dataset.epay; $('view-exp').querySelectorAll('[data-epay]').forEach(x=>x.setAttribute('aria-pressed', String(x===pb))); return; }
   const del = e.target.closest('[data-edel]');
@@ -1080,6 +1129,7 @@ async function syncNow(manual){
     save(K.sales, sales); save(K.exp, expenses); lastErr = ''; cfg.lastSync = new Date().toISOString(); save(K.cfg, cfg);
     syncing = false; updateSyncPill();
     if(manual) toast('Sync berjaya: ' + batch.length + ' rekod');
+    Object.keys(remote).forEach(k => { remote[k].at = 0; });
     if(pending().length) setTimeout(() => syncNow(false), 500);
   }catch(err){
     syncing = false; lastErr = 'tak dapat hubungi Google Sheets. Semak link dan internet.'; updateSyncPill();
