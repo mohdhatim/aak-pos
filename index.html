@@ -194,6 +194,31 @@ td.catrow{font-family:var(--f-label);font-weight:700;font-size:15px;letter-spaci
 .qnote{display:block;font-size:14px;font-weight:700;color:var(--accent);margin-top:2px}
 .rmtext{width:100%;padding:10px 12px;border-radius:10px;border:2px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:15px}
 .chip.rmk[aria-pressed="true"]{border-color:var(--accent);background:var(--accent);color:var(--accent-ink)}
+.addbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;padding:12px 14px;border-radius:var(--r);background:var(--ink);color:var(--bg)}
+.addbar b{font-family:var(--f-display);font-weight:400;font-size:22px;color:var(--gold)}
+.addbar .grow{flex:1;min-width:180px}
+.addbar button{border:2px solid var(--bg);background:transparent;color:var(--bg);border-radius:999px;padding:8px 14px;font-weight:700}
+.qc-acts{display:flex;gap:8px;margin-top:8px}
+.qc-cancel{display:flex;justify-content:center;margin-top:10px}
+.qc-cancel button,.qrm{border:0;background:none;color:var(--accent);font-weight:700;font-size:14px;text-decoration:underline;padding:6px 4px;min-height:32px}
+.qrm{margin-left:auto;font-size:13px;flex:0 0 auto}
+.qitems li{display:flex;align-items:flex-start;gap:6px}
+.qitems li label{flex:1;min-width:0}
+.qc-acts .btn{flex:1;font-size:15px;min-height:44px;padding:8px}
+.pill.add{background:var(--gold);color:#fff}
+.exp-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px}
+.exp-form .full{grid-column:1/-1}
+.exp-form label{display:block;margin-bottom:6px}
+.exp-form input,.exp-form select{width:100%;height:46px;padding:0 12px;border-radius:10px;border:2px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-weight:600}
+.pnl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:16px}
+.pnl .tile b.pos{color:var(--ok)} .pnl .tile b.neg{color:var(--accent)}
+.explist{list-style:none;margin:0;padding:0}
+.explist li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.explist .en{font-weight:700}
+.explist .em{font-size:13px;color:var(--ink-2)}
+.explist .ea{font-weight:700;text-align:right}
+.explist li.voided .en,.explist li.voided .ea{text-decoration:line-through;opacity:.55}
+@media (max-width:600px){.exp-form{grid-template-columns:minmax(0,1fr)}.pnl{grid-template-columns:minmax(0,1fr)}}
 .qempty{padding:36px 16px;text-align:center;color:var(--ink-2);background:var(--surface);border:2px dashed var(--line);border-radius:var(--r)}
 
 @media (max-width:900px){
@@ -224,6 +249,7 @@ td.catrow{font-family:var(--f-label);font-weight:700;font-size:15px;letter-spaci
     <button role="tab" id="tab-sale" data-view="sale" aria-selected="true">Jualan</button>
     <button role="tab" id="tab-kitchen" data-view="kitchen" aria-selected="false">Dapur <span class="badge num" id="kBadge" hidden>0</span></button>
     <button role="tab" id="tab-report" data-view="report" aria-selected="false">Laporan</button>
+    <button role="tab" id="tab-exp" data-view="exp" aria-selected="false">Belanja</button>
     <button role="tab" id="tab-menu" data-view="menu" aria-selected="false">Menu &amp; Harga</button>
   </nav>
   <span class="net" id="net">Online</span><span class="net" id="syncPill" hidden></span>
@@ -232,6 +258,7 @@ td.catrow{font-family:var(--f-label);font-weight:700;font-size:15px;letter-spaci
 <main>
   <section class="sale" id="view-sale">
     <div>
+      <div class="addbar" id="addbar" hidden></div>
       <div class="unpaid" id="unpaid" hidden></div>
       <div class="cats" id="cats" aria-label="Kategori"></div>
       <div id="menu"></div>
@@ -256,6 +283,7 @@ td.catrow{font-family:var(--f-label);font-weight:700;font-size:15px;letter-spaci
 
   <section class="view" id="view-kitchen" hidden></section>
   <section class="view" id="view-report" hidden></section>
+  <section class="view" id="view-exp" hidden></section>
   <section class="view" id="view-menu" hidden></section>
 </main>
 
@@ -364,7 +392,8 @@ const REMARKS = ['Tak nak sayur','Tak nak sos cili','Mayo sahaja','Kosong budak'
 const REMARKS_AIR = ['Kurang manis','Kurang ais','Tak nak ais'];
 
 /* ---------- storage (simpan dalam peranti ini) ---------- */
-const K = {menu:'aak_menu_v1', sales:'aak_sales_v1', cfg:'aak_cfg_v1'};
+const K = {menu:'aak_menu_v1', sales:'aak_sales_v1', cfg:'aak_cfg_v1', exp:'aak_exp_v1'};
+let expenses = load(K.exp, []); if(!Array.isArray(expenses)) expenses = [];
 function load(k, fb){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : fb; }catch(e){ return fb; } }
 function save(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ return false; } }
 
@@ -390,7 +419,8 @@ let cart = []; // {key, itemId, label, addons:[{id,name,price}], unit, qty}
 document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => show(b.dataset.view)));
 function show(v){
   document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.view===v)));
-  $('view-sale').hidden = v!=='sale'; $('view-report').hidden = v!=='report'; $('view-menu').hidden = v!=='menu'; $('view-kitchen').hidden = v!=='kitchen';
+  $('view-sale').hidden = v!=='sale'; $('view-report').hidden = v!=='report'; $('view-menu').hidden = v!=='menu'; $('view-kitchen').hidden = v!=='kitchen'; $('view-exp').hidden = v!=='exp';
+  if(v==='exp') renderExp();
   if(v==='kitchen') renderKitchen();
   if(v==='report') renderReport();
   if(v==='menu') renderMenuEditor();
@@ -456,6 +486,10 @@ function renderCart(){
   const t = cartTotal(), n = cartCount();
   $('total').textContent = RM(t);
   $('payBtn').disabled = !n; $('laterBtn').disabled = !n;
+  const tgt = addTo && sales.find(x=>x.id===addTo);
+  $('payBtn').textContent = tgt ? 'Tambah ke ' + fmtNo(tgt.no) : 'Bayar sekarang';
+  $('laterBtn').hidden = !!tgt;
+  renderAddBar();
   $('sbCount').textContent = n + ' item';
   $('sbTotal').textContent = RM(t);
 }
@@ -469,7 +503,7 @@ $('lines').addEventListener('click', e => {
 });
 $('clearBtn').addEventListener('click', () => { if(!cart.length) return; cart = []; renderCart(); toast('Pesanan dikosongkan'); });
 $('sbOpen').addEventListener('click', () => $('ticket').classList.toggle('open'));
-$('payBtn').addEventListener('click', () => openPay(null));
+$('payBtn').addEventListener('click', () => { if(addTo) appendToOrder(); else openPay(null); });
 $('laterBtn').addEventListener('click', sendLater);
 
 function renderSale(){ renderCats(); renderMenu(); renderCart(); renderUnpaid(); }
@@ -532,7 +566,7 @@ function openAddons(item){
 
 /* ---------- payment ---------- */
 function openPay(target, handOver){
-  const total = target ? target.total : cartTotal(); let method = 'Tunai'; let cash = 0; let wallet = WALLETS[0];
+  const total = target ? dueOf(target) : cartTotal(); let method = 'Tunai'; let cash = 0; let wallet = WALLETS[0];
   const quick = [...new Set([total, Math.ceil(total/500)*500, Math.ceil(total/1000)*1000, 2000, 5000, 10000].filter(v=>v>=total))].slice(0,5);
   openModal(`
     <h3>Bayaran ${fmtNo(target ? target.no : nextNo())}</h3>
@@ -577,12 +611,52 @@ function openPay(target, handOver){
 
 const methodName = sl => sl.wallet ? sl.wallet : (sl.method || '');
 const isPaidOf = sl => sl.isPaid !== false; // jualan lama dianggap dah bayar
+const dueOf = sl => (sl.void || isPaidOf(sl)) ? 0 : sl.total - (sl.prepaid||0);
+// senarai bayaran ikut kaedah (jualan lama: satu bayaran penuh)
+const paymentsOf = sl => sl.void ? [] : (sl.payments && sl.payments.length ? sl.payments : (isPaidOf(sl) ? [{m: methodName(sl), method: sl.method, amt: sl.total}] : []));
+const collectedOf = sl => sl.void ? 0 : (isPaidOf(sl) ? sl.total : (sl.prepaid||0));
+
+/* ---------- tambah order pada pesanan sedia ada ---------- */
+let addTo = null;
+function startAdd(id){ addTo = id; cart = []; show('sale'); toast('Pilih item untuk ditambah ke ' + fmtNo(sales.find(x=>x.id===id).no)); }
+function cancelAdd(){ addTo = null; renderCart(); }
+function renderAddBar(){
+  const bar = $('addbar'); const tgt = addTo && sales.find(x=>x.id===addTo);
+  if(!tgt){ bar.hidden = true; bar.innerHTML=''; return; }
+  bar.hidden = false;
+  bar.innerHTML = `<span class="grow">Menambah order ke <b class="num">${fmtNo(tgt.no)}</b> · ${tgt.items.length} item sedia ada</span><button data-canceladd>Batal tambah</button>`;
+}
+$('addbar').addEventListener('click', e => { if(e.target.closest('[data-canceladd]')) cancelAdd(); });
+function appendToOrder(){
+  const sale = sales.find(x=>x.id===addTo); if(!sale || !cart.length) return;
+  const extra = cartTotal();
+  if(isPaidOf(sale)){ if(!sale.payments || !sale.payments.length) sale.payments = [{m: methodName(sale), method: sale.method, amt: sale.total}]; sale.prepaid = sale.total; sale.isPaid = false; }
+  sale.items.push(...cart.map(c=>({label:c.label, addons:c.addons.map(a=>a.name), notes:c.notes||[], unit:c.unit, qty:c.qty, station:c.station||'Burger', done:false, added:true})));
+  sale.total += extra;
+  sale.status = 'baru';
+  touch(sale); const stored = save(K.sales, sales);
+  cart = []; addTo = null; renderCart(); renderUnpaid(); updateBadge(); queueSync();
+  openModal(`
+    <div class="done">
+      <div class="lbl">Order ditambah</div>
+      <div class="big num">${fmtNo(sale.no)}</div>
+      <p style="margin:6px 0 0">Tambahan <b class="num">${RM(extra)}</b> · Jumlah baru <b class="num">${RM(sale.total)}</b></p>
+      <p class="note" style="margin:10px 0 0">Item tambahan dah masuk ke giliran Dapur. Baki perlu bayar: <b class="num">${RM(dueOf(sale))}</b></p>
+      ${stored ? '' : `<p class="note" style="color:var(--accent)">Tak dapat simpan dalam peranti ini.</p>`}
+    </div>
+    <div class="row"><button class="btn sec" data-x>Bayar kemudian</button><button class="btn pri" data-paynow data-focus>Bayar sekarang</button></div>
+  `, m => {
+    m.querySelector('[data-x]').addEventListener('click', closeModal);
+    m.querySelector('[data-paynow]').addEventListener('click', () => openPay(sale, false));
+  });
+}
 
 function createOrder(pay){
   const total = cartTotal(), no = nextNo(), now = new Date();
   const sale = {id: now.getTime()+'-'+no, day: todayKey(), no, time: now.toISOString(),
     method: pay ? pay.method : null, wallet: pay ? (pay.wallet||null) : null, total, paid: pay ? pay.paid : 0, change: pay ? pay.paid-total : 0,
     isPaid: !!pay, paidAt: pay ? now.toISOString() : null,
+    payments: pay ? [{m: pay.wallet || pay.method, method: pay.method, amt: total}] : [],
     items: cart.map(c=>({label:c.label, addons:c.addons.map(a=>a.name), notes:c.notes||[], unit:c.unit, qty:c.qty, station:c.station||'Burger', done:false})), void:false, synced:false,
     status:'baru'};
   sale.rev = 1;
@@ -598,7 +672,7 @@ function paidModal(sale, stored, extra){
     <div class="done">
       <div class="lbl">Bayaran diterima</div>
       <div class="big num">${fmtNo(sale.no)}</div>
-      <p style="margin:6px 0 0">${esc(methodName(sale))} · <b class="num">${RM(sale.total)}</b></p>
+      <p style="margin:6px 0 0">${esc(methodName(sale))} · <b class="num">${RM(sale.lastPaid || sale.total)}</b></p>
       ${sale.method==='Tunai' ? `<div class="change" style="margin-top:12px"><span class="lbl" style="color:inherit">Pulangkan baki</span><b class="num">${RM(sale.change)}</b></div>` : ''}
       <p class="note" style="margin:10px 0 0">${extra}</p>
       ${stored ? '' : `<p class="note" style="color:var(--accent)">Jualan tak dapat disimpan dalam peranti ini. Semak tetapan storan pelayar.</p>`}
@@ -628,7 +702,10 @@ function sendLater(){
 
 function settle(sale, method, paid, handOver, wallet){
   const now = new Date();
-  sale.isPaid = true; sale.method = method; sale.wallet = wallet || null; sale.paid = paid; sale.change = paid - sale.total; sale.paidAt = now.toISOString();
+  const due = dueOf(sale);
+  sale.payments = (sale.payments && sale.payments.length) ? sale.payments : (sale.prepaid ? [{m: methodName(sale), method: sale.method, amt: sale.prepaid}] : []);
+  sale.payments.push({m: wallet || method, method, amt: due});
+  sale.isPaid = true; sale.prepaid = sale.total; sale.method = method; sale.wallet = wallet || null; sale.paid = paid; sale.change = paid - due; sale.lastPaid = due; sale.paidAt = now.toISOString();
   if(handOver){ sale.status = 'diambil'; sale.pickedAt = now.toISOString(); }
   touch(sale);
   const stored = save(K.sales, sales);
@@ -645,12 +722,24 @@ function renderUnpaid(){
   if(!list.length){ box.hidden = true; box.innerHTML = ''; return; }
   box.hidden = false;
   box.innerHTML = `<span class="lbl">Belum bayar</span>` + list.map(x =>
-    `<button data-payo="${x.id}">${fmtNo(x.no)} · <b class="num">${RM(x.total)}</b> · ${statusOf(x)==='siap' ? 'Siap' : 'Disediakan'}</button>`).join('');
+    `<button data-payo="${x.id}">${fmtNo(x.no)} · <b class="num">${RM(dueOf(x))}</b> · ${statusOf(x)==='siap' ? 'Siap' : 'Disediakan'}</button>`).join('');
 }
 $('unpaid').addEventListener('click', e => {
   const b = e.target.closest('[data-payo]'); if(!b) return;
   const sl = sales.find(x=>x.id===b.dataset.payo); openPay(sl, statusOf(sl)==='siap');
 });
+
+function refundModal(sl, amt, title){
+  openModal(`
+    <div class="done">
+      <div class="lbl">${esc(title)}</div>
+      <div class="big num">${fmtNo(sl.no)}</div>
+      <div class="change short" style="margin-top:12px"><span class="lbl" style="color:inherit">Pulangkan kepada pelanggan</span><b class="num">${RM(amt)}</b></div>
+      <p class="note" style="margin:10px 0 0">Laporan jualan dah dikemas kini.</p>
+    </div>
+    <button class="btn pri" data-x data-focus>OK</button>
+  `, m => m.querySelector('[data-x]').addEventListener('click', closeModal));
+}
 
 /* ---------- kitchen queue ---------- */
 const LATE_MIN = 10;
@@ -669,11 +758,16 @@ function qCard(s, ready){
     <ul class="qitems">${s.items.map((i,idx) => !show(i) ? '' : `
       <li><label class="${i.done||ready?'done':''}">
         <input type="checkbox" id="k-${s.id}-${idx}" data-k="${s.id}" data-ix="${idx}" ${i.done||ready?'checked':''} ${ready?'disabled':''}>
-        <span><span class="qn">${i.qty}× ${esc(i.label)}</span>${kStation==='Semua' && !ready ? ` <span class="pill">${esc(stOf(i))}</span>` : ''}${i.addons.length ? `<span class="qa">+ ${i.addons.map(esc).join(', ')}</span>` : ''}${i.notes && i.notes.length ? `<span class="qnote">⚠ ${i.notes.map(esc).join(', ')}</span>` : ''}</span>
-      </label></li>`).join('')}</ul>
+        <span><span class="qn">${i.qty}× ${esc(i.label)}</span>${i.added ? ' <span class="pill add">Tambahan</span>' : ''}${kStation==='Semua' && !ready ? ` <span class="pill">${esc(stOf(i))}</span>` : ''}${i.addons.length ? `<span class="qa">+ ${i.addons.map(esc).join(', ')}</span>` : ''}${i.notes && i.notes.length ? `<span class="qnote">⚠ ${i.notes.map(esc).join(', ')}</span>` : ''}</span>
+      </label>${!ready && s.items.length > 1 ? `<button class="qrm" data-rmi="${s.id}" data-ix="${idx}" aria-label="Buang ${esc(i.label)}">Buang</button>` : ''}</li>`).join('')}</ul>
     <div class="qc-foot">${ready
-      ? (isPaidOf(s) ? `<button class="btn sec" data-pick="${s.id}">Dah diambil</button>` : `<button class="btn pri" data-paypick="${s.id}">Bayar &amp; serah · <span class="num">${RM(s.total)}</span></button>`)
-      : `<button class="btn okb" data-ready="${s.id}">${kStation==='Semua' ? 'Siap semua' : 'Siap (' + esc(kStation) + ')'}</button>`}</div>
+      ? (isPaidOf(s) ? `<button class="btn sec" data-pick="${s.id}">Dah diambil</button>` : `<button class="btn pri" data-paypick="${s.id}">Bayar &amp; serah · <span class="num">${RM(dueOf(s))}</span></button>`)
+      : `<button class="btn okb" data-ready="${s.id}">${kStation==='Semua' ? 'Siap semua' : 'Siap (' + esc(kStation) + ')'}</button>`}
+      <div class="qc-acts">
+        <button class="btn ghost" data-addk="${s.id}">+ Tambah order</button>
+        ${!ready && !isPaidOf(s) ? `<button class="btn ghost" data-payk="${s.id}">Bayar · <span class="num">${RM(dueOf(s))}</span></button>` : ''}
+      </div>
+      <div class="qc-cancel"><button data-cancelk="${s.id}">Batal order</button></div></div>
   </article>`;
 }
 function renderKitchen(){
@@ -704,6 +798,38 @@ $('view-kitchen').addEventListener('change', e => {
 $('view-kitchen').addEventListener('click', e => {
   const r = e.target.closest('[data-ready]'), p = e.target.closest('[data-pick]'), pp = e.target.closest('[data-paypick]');
   if(pp){ openPay(sales.find(x=>x.id===pp.dataset.paypick), true); return; }
+  const pk = e.target.closest('[data-payk]'); if(pk){ openPay(sales.find(x=>x.id===pk.dataset.payk), false); return; }
+  const ak = e.target.closest('[data-addk]'); if(ak){ startAdd(ak.dataset.addk); return; }
+  const ck = e.target.closest('[data-cancelk]');
+  if(ck){
+    if(!ck.dataset.confirm){ ck.dataset.confirm = '1'; ck.textContent = 'Tekan lagi untuk batal ' + fmtNo(sales.find(x=>x.id===ck.dataset.cancelk).no); return; }
+    const sl = sales.find(x=>x.id===ck.dataset.cancelk); const refund = collectedOf(sl);
+    sl.void = true; sl.voidAt = new Date().toISOString(); touch(sl); save(K.sales, sales); queueSync();
+    renderKitchen(); renderUnpaid(); updateBadge();
+    if(refund > 0) refundModal(sl, refund, 'Order dibatalkan'); else toast(fmtNo(sl.no) + ' dibatalkan');
+    return;
+  }
+  const ri = e.target.closest('[data-rmi]');
+  if(ri){
+    const sl = sales.find(x=>x.id===ri.dataset.rmi), ix = +ri.dataset.ix, it = sl.items[ix];
+    if(!ri.dataset.confirm){ ri.dataset.confirm = '1'; ri.textContent = 'Pasti?'; return; }
+    sl.items.splice(ix, 1);
+    sl.total -= it.unit * it.qty;
+    let refund = 0;
+    const paidSoFar = isPaidOf(sl) ? sl.prepaid ?? (sl.total + it.unit*it.qty) : (sl.prepaid||0);
+    if(paidSoFar > sl.total){
+      refund = paidSoFar - sl.total;
+      if(!sl.payments || !sl.payments.length) sl.payments = [{m: methodName(sl), method: sl.method, amt: paidSoFar}];
+      const last = sl.payments[sl.payments.length-1];
+      sl.payments.push({m: last.m, method: last.method, amt: -refund});
+      sl.prepaid = sl.total; sl.isPaid = true;
+    } else if(!isPaidOf(sl) && (sl.prepaid||0) === sl.total && sl.total > 0){ sl.isPaid = true; }
+    if(sl.items.every(i=>i.done)){ sl.status = 'siap'; sl.readyAt = new Date().toISOString(); }
+    touch(sl); save(K.sales, sales); queueSync();
+    renderKitchen(); renderUnpaid(); updateBadge();
+    if(refund > 0) refundModal(sl, refund, it.qty + '× ' + it.label + ' dibuang'); else toast(it.label + ' dibuang dari ' + fmtNo(sl.no));
+    return;
+  }
   const stb = e.target.closest('[data-st]'); if(stb){ kStation = stb.dataset.st; renderKitchen(); return; }
   if(r){ const s = sales.find(x=>x.id===r.dataset.ready);
     s.items.forEach(i=>{ if(kStation==='Semua' || stOf(i)===kStation) i.done=true; });
@@ -720,14 +846,19 @@ const dayKeyOf = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')
 const shiftDay = (k, n) => { const [y,m,dd] = k.split('-').map(Number); const d = new Date(y, m-1, dd + n); return dayKeyOf(d); };
 function renderReport(){
   const day = rDay || todayKey(), isToday = day === todayKey();
-  const list = sales.filter(x => x.day === day), live = list.filter(s=>!s.void && isPaidOf(s)), due = list.filter(s=>!s.void && !isPaidOf(s));
-  const dueT = due.reduce((a,x)=>a+x.total,0);
-  const sum = f => live.filter(f).reduce((s,x)=>s+x.total,0);
-  const total = sum(()=>true), cashT = sum(s=>s.method==='Tunai'), ew = sum(s=>s.method!=='Tunai');
+  const list = sales.filter(x => x.day === day), live = list.filter(s=>collectedOf(s)>0), due = list.filter(s=>dueOf(s)>0);
+  const dueT = due.reduce((a,x)=>a+dueOf(x),0);
+  const sum = f => live.filter(f).reduce((s,x)=>s+collectedOf(x),0);
+  const expT = expTotal(e => e.day === day);
+  const mon = day.slice(0,7);
+  const monSales = sales.filter(x => x.day && x.day.slice(0,7) === mon).reduce((a,x)=>a+collectedOf(x),0);
+  const monExp = expTotal(e => e.day.slice(0,7) === mon);
+  const pays = live.flatMap(paymentsOf);
+  const total = sum(()=>true), cashT = pays.filter(x=>x.method==='Tunai').reduce((a,x)=>a+x.amt,0), ew = pays.filter(x=>x.method!=='Tunai').reduce((a,x)=>a+x.amt,0);
   const counts = {};
   list.filter(s=>!s.void).forEach(s => s.items.forEach(i => { counts[i.label] = (counts[i.label]||0) + i.qty; }));
   const top = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,6);
-  const byM = {}; live.forEach(x => { const k = methodName(x); byM[k] = (byM[k]||0) + x.total; });
+  const byM = {}; pays.forEach(x => { byM[x.m] = (byM[x.m]||0) + x.amt; });
   const mlist = Object.entries(byM).sort((a,b)=>b[1]-a[1]); const mmax = mlist.length ? mlist[0][1] : 1;
   const max = top.length ? top[0][1] : 1;
   const [yy,mm,dd0] = day.split('-').map(Number); const d = new Date(yy, mm-1, dd0);
@@ -747,6 +878,8 @@ function renderReport(){
       <div class="tile"><span class="lbl">E-Wallet / QR</span><b class="num">${RM(ew)}</b></div>
       <div class="tile"><span class="lbl" style="color:var(--accent)">Belum bayar (${due.length})</span><b class="num" style="color:var(--accent)">${RM(dueT)}</b></div>
     </div>
+    ${pnlTiles('Hari ini', total, expT)}
+    ${pnlTiles('Bulan ' + d.toLocaleDateString('ms-MY',{month:'long',year:'numeric'}), monSales, monExp)}
     <div class="two">
       <div class="panel">
         <h3>Senarai pesanan</h3>
@@ -776,7 +909,7 @@ $('view-report').addEventListener('click', e => {
     rDay = n===0 ? null : shiftDay(cur, n); if(rDay && rDay >= todayKey()) rDay = null; renderReport(); return; }
   const b = e.target.closest('[data-void]'); if(!b) return;
   const s = sales.find(x=>x.id===b.dataset.void);
-  if(b.dataset.confirm){ s.void = true; touch(s); save(K.sales, sales); queueSync(); renderReport(); updateBadge(); renderUnpaid(); toast('Pesanan '+fmtNo(s.no)+' dibatalkan'); }
+  if(b.dataset.confirm){ const refund = collectedOf(s); s.void = true; touch(s); save(K.sales, sales); queueSync(); if(refund > 0) setTimeout(() => refundModal(s, refund, 'Order dibatalkan'), 50); renderReport(); updateBadge(); renderUnpaid(); toast('Pesanan '+fmtNo(s.no)+' dibatalkan'); }
   else { b.dataset.confirm = '1'; b.textContent = 'Tekan sekali lagi untuk batal'; }
 });
 
@@ -836,16 +969,89 @@ $('view-menu').addEventListener('click', e => {
   }
 });
 
+/* ---------- belanja (perbelanjaan) ---------- */
+const EXP_CATS = ['Bahan mentah','Minuman','Pembungkusan','Gas / minyak','Sewa / utiliti','Gaji','Lain-lain'];
+const EXP_PAY = ['Tunai','Bank / QR','Kad'];
+const expTotal = f => expenses.filter(e => !e.void && f(e)).reduce((a,e)=>a+e.amount,0);
+function pnlTiles(label, rev, exp){
+  const pr = rev - exp;
+  return `<div class="pnl">
+    <div class="tile"><span class="lbl">Jualan · ${esc(label)}</span><b class="num">${RM(rev)}</b></div>
+    <div class="tile"><span class="lbl">Belanja · ${esc(label)}</span><b class="num">${RM(exp)}</b></div>
+    <div class="tile"><span class="lbl">${pr >= 0 ? 'Untung' : 'Rugi'} · ${esc(label)}</span><b class="num ${pr >= 0 ? 'pos' : 'neg'}">${pr < 0 ? '-' : ''}${RM(Math.abs(pr))}</b></div>
+  </div>`;
+}
+let eDay = null, eCat = EXP_CATS[0], ePay = EXP_PAY[0];
+function renderExp(){
+  const day = eDay || todayKey();
+  const list = expenses.filter(e => e.day === day).slice().reverse();
+  const rev = sales.filter(x => x.day === day).reduce((a,x)=>a+collectedOf(x),0);
+  const mon = day.slice(0,7);
+  const monRev = sales.filter(x => x.day && x.day.slice(0,7) === mon).reduce((a,x)=>a+collectedOf(x),0);
+  const [yy,mm,dd0] = day.split('-').map(Number); const d = new Date(yy, mm-1, dd0);
+  $('view-exp').innerHTML = `
+    ${pnlTiles(day===todayKey() ? 'Hari ini' : d.toLocaleDateString('ms-MY',{day:'numeric',month:'short'}), rev, expTotal(e => e.day === day))}
+    ${pnlTiles('Bulan ' + d.toLocaleDateString('ms-MY',{month:'long',year:'numeric'}), monRev, expTotal(e => e.day.slice(0,7) === mon))}
+    <div class="two">
+      <div class="panel">
+        <h3>Rekod belanja baru</h3>
+        <form id="expForm" class="exp-form" autocomplete="off">
+          <div><label class="lbl" for="eDate">Tarikh</label><input type="date" id="eDate" value="${day}" max="${todayKey()}"></div>
+          <div><label class="lbl" for="eAmt">Jumlah (RM)</label><input type="number" id="eAmt" inputmode="decimal" min="0" step="0.01" placeholder="0.00" required></div>
+          <div class="full"><label class="lbl" for="eItem">Perkara</label><input type="text" id="eItem" maxlength="80" placeholder="Contoh: Roti burger 5 pek, daging 3kg" required></div>
+          <div class="full"><span class="lbl" style="display:block;margin-bottom:6px">Kategori</span>
+            <div class="chips">${EXP_CATS.map(c=>`<button type="button" class="chip" data-ecat="${esc(c)}" aria-pressed="${c===eCat}">${esc(c)}</button>`).join('')}</div></div>
+          <div class="full"><span class="lbl" style="display:block;margin-bottom:6px">Bayar guna</span>
+            <div class="chips">${EXP_PAY.map(c=>`<button type="button" class="chip" data-epay="${esc(c)}" aria-pressed="${c===ePay}">${esc(c)}</button>`).join('')}</div></div>
+          <div class="full"><button class="btn pri" type="submit" style="width:100%">Simpan belanja</button></div>
+        </form>
+      </div>
+      <div class="panel">
+        <h3>Belanja ${day===todayKey() ? 'hari ini' : d.toLocaleDateString('ms-MY',{day:'numeric',month:'long'})}</h3>
+        ${list.length ? `<ul class="explist">${list.map(e=>`
+          <li class="${e.void?'voided':''}">
+            <span class="en">${esc(e.item)}</span><span class="ea num">${RM(e.amount)}</span>
+            <span class="em">${esc(e.cat)} · ${esc(e.pay)}${e.void ? ' · Dipadam' : ''}</span>
+            <span>${e.void ? '' : `<button class="linkbtn" data-edel="${e.id}">Padam</button>`}</span>
+          </li>`).join('')}</ul>`
+        : `<p class="empty">Belum ada belanja direkodkan untuk tarikh ini.</p>`}
+      </div>
+    </div>`;
+}
+$('view-exp').addEventListener('click', e => {
+  const c = e.target.closest('[data-ecat]'); if(c){ eCat = c.dataset.ecat; $('view-exp').querySelectorAll('[data-ecat]').forEach(x=>x.setAttribute('aria-pressed', String(x===c))); return; }
+  const pb = e.target.closest('[data-epay]'); if(pb){ ePay = pb.dataset.epay; $('view-exp').querySelectorAll('[data-epay]').forEach(x=>x.setAttribute('aria-pressed', String(x===pb))); return; }
+  const del = e.target.closest('[data-edel]');
+  if(del){
+    if(del.dataset.confirm){ const x = expenses.find(y=>y.id===del.dataset.edel); x.void = true; touch(x); save(K.exp, expenses); queueSync(); renderExp(); toast('Belanja dipadam'); }
+    else { del.dataset.confirm = '1'; del.textContent = 'Tekan lagi untuk padam'; }
+  }
+});
+$('view-exp').addEventListener('change', e => {
+  if(e.target.id==='eDate' && e.target.value){ const keepAmt = $('eAmt').value, keepItem = $('eItem').value; eDay = e.target.value > todayKey() ? todayKey() : e.target.value; if(eDay===todayKey()) eDay = null; renderExp(); $('eAmt').value = keepAmt; $('eItem').value = keepItem; }
+});
+$('view-exp').addEventListener('submit', e => {
+  e.preventDefault();
+  const amt = SEN(parseFloat($('eAmt').value)||0), item = $('eItem').value.trim(), day = $('eDate').value || todayKey();
+  if(!amt || amt <= 0){ toast('Masukkan jumlah'); $('eAmt').focus(); return; }
+  if(!item){ toast('Masukkan perkara'); $('eItem').focus(); return; }
+  const now = new Date();
+  expenses.push({id:'E'+now.getTime(), day, time: now.toISOString(), item, cat: eCat, pay: ePay, amount: amt, void:false, synced:false, rev:1});
+  const ok = save(K.exp, expenses); queueSync();
+  eDay = day === todayKey() ? null : day; renderExp();
+  toast(ok ? 'Belanja disimpan: ' + RM(amt) : 'Tak dapat simpan dalam peranti ini');
+});
+
 /* ---------- sync ke Google Sheets ---------- */
 let cfg = load(K.cfg, {}); if(!cfg || typeof cfg!=='object') cfg = {};
 let syncing = false, syncTimer = null, lastErr = '';
 function touch(s){ s.rev = (s.rev||1) + 1; s.synced = false; }
-const pending = () => sales.filter(s => !s.synced);
+const pending = () => sales.filter(s => !s.synced).concat(expenses.filter(x => !x.synced));
 function syncStatusText(){
   if(!cfg.url) return 'Belum disambung ke Google Sheets.';
   const n = pending().length;
   const last = cfg.lastSync ? 'Sync terakhir: ' + new Date(cfg.lastSync).toLocaleString('ms-MY',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) + '. ' : '';
-  return last + (n ? n + ' pesanan belum dihantar.' : 'Semua jualan dah dihantar.') + (lastErr ? ' Ralat: ' + lastErr : '');
+  return last + (n ? n + ' rekod belum dihantar.' : 'Semua jualan & belanja dah dihantar.') + (lastErr ? ' Ralat: ' + lastErr : '');
 }
 function updateSyncPill(){
   const pl = $('syncPill');
@@ -857,22 +1063,23 @@ function updateSyncPill(){
 }
 function queueSync(){ updateSyncPill(); clearTimeout(syncTimer); syncTimer = setTimeout(() => syncNow(false), 1500); }
 const slim = s => ({id:s.id, day:s.day, no:s.no, time:s.time, isPaid:isPaidOf(s), method:s.method||'', wallet:s.wallet||'',
-  total:s.total, paid:s.paid||0, change:s.change||0, void:!!s.void, paidAt:s.paidAt||'',
+  total:s.total, prepaid: isPaidOf(s) ? s.total : (s.prepaid||0), paid:s.paid||0, change:s.change||0, void:!!s.void, paidAt:s.paidAt||'',
   items:s.items.map(i=>({label:i.label, qty:i.qty, unit:i.unit, addons:i.addons||[], notes:i.notes||[], station:i.station||''}))});
 async function syncNow(manual){
   if(!cfg.url || syncing) return;
   if(!navigator.onLine){ if(manual){ lastErr=''; const m=document.getElementById('syncMsg'); if(m) m.textContent='Tiada internet. Jualan akan dihantar bila online.'; } return; }
-  const batch = pending().slice(0, 40); if(!batch.length){ lastErr=''; cfg.lastSync = new Date().toISOString(); save(K.cfg,cfg); updateSyncPill(); return; }
+  const sb = sales.filter(s => !s.synced).slice(0, 40), eb = expenses.filter(x => !x.synced).slice(0, 40);
+  const batch = sb.concat(eb); if(!batch.length){ lastErr=''; cfg.lastSync = new Date().toISOString(); save(K.cfg,cfg); updateSyncPill(); return; }
   const revs = Object.fromEntries(batch.map(s=>[s.id, s.rev||1]));
   syncing = true; updateSyncPill();
   try{
-    const res = await fetch(cfg.url, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({sales: batch.map(slim)})});
+    const res = await fetch(cfg.url, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({sales: sb.map(slim), expenses: eb.map(x => ({id:x.id, day:x.day, time:x.time, item:x.item, cat:x.cat, pay:x.pay, amount:x.amount, void:!!x.void}))})});
     const j = await res.json();
     if(!j.ok) throw new Error(j.error || 'Sheets menolak data');
     batch.forEach(s => { if((s.rev||1) === revs[s.id]) s.synced = true; });
-    save(K.sales, sales); lastErr = ''; cfg.lastSync = new Date().toISOString(); save(K.cfg, cfg);
+    save(K.sales, sales); save(K.exp, expenses); lastErr = ''; cfg.lastSync = new Date().toISOString(); save(K.cfg, cfg);
     syncing = false; updateSyncPill();
-    if(manual) toast('Sync berjaya: ' + batch.length + ' pesanan');
+    if(manual) toast('Sync berjaya: ' + batch.length + ' rekod');
     if(pending().length) setTimeout(() => syncNow(false), 500);
   }catch(err){
     syncing = false; lastErr = 'tak dapat hubungi Google Sheets. Semak link dan internet.'; updateSyncPill();
