@@ -219,6 +219,15 @@ td.catrow{font-family:var(--f-label);font-weight:700;font-size:15px;letter-spaci
 .explist .ea{font-weight:700;text-align:right}
 .explist li.voided .en,.explist li.voided .ea{text-decoration:line-through;opacity:.55}
 @media (max-width:600px){.exp-form{grid-template-columns:minmax(0,1fr)}.pnl{grid-template-columns:minmax(0,1fr)}}
+.pill.web{background:#1F6FB2;color:#fff}
+.cust{display:block;font-size:13px;color:var(--ink-2);padding:0 14px 6px;margin-top:-4px}
+.cust b{color:var(--ink)}
+.wtoggle{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.wtoggle .state{font-family:var(--f-label);font-weight:700;font-size:16px;letter-spacing:1px;padding:6px 12px;border-radius:999px}
+.wtoggle .on{background:var(--ok-bg);color:var(--ok)} .wtoggle .off{background:var(--warn-bg);color:var(--accent)}
+.newo{display:flex;flex-direction:column;gap:8px;margin:0;padding:0;list-style:none}
+.newo li{padding:10px 12px;border-radius:10px;background:var(--surface-2);text-align:left}
+.newo li b{font-family:var(--f-display);font-weight:400;font-size:24px;color:#1F6FB2;margin-right:8px}
 .qempty{padding:36px 16px;text-align:center;color:var(--ink-2);background:var(--surface);border:2px dashed var(--line);border-radius:var(--r)}
 
 @media (max-width:900px){
@@ -408,7 +417,7 @@ if(!Array.isArray(sales)) sales = [];
 
 const todayKey = () => { const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
 const todaySales = () => sales.filter(s => s.day === todayKey());
-const nextNo = () => todaySales().reduce((m,s)=>Math.max(m,s.no),0) + 1;
+const nextNo = () => todaySales().reduce((m,s)=>typeof s.no === 'number' ? Math.max(m,s.no) : m,0) + 1;
 const fmtNo = n => '#' + String(n).padStart(3,'0');
 
 /* ---------- state ---------- */
@@ -754,7 +763,8 @@ function qCard(s, ready){
   const age = ageMin(s), late = !ready && age >= LATE_MIN;
   const show = i => ready || kStation==='Semua' || stOf(i)===kStation;
   return `<article class="qcard ${ready?'ready':''} ${late?'late':''}">
-    <div class="qc-head"><span class="on num">${fmtNo(s.no)}${isPaidOf(s) ? '' : ' <span class="pill due" style="vertical-align:middle">Belum bayar</span>'}</span><span class="age num">${ready ? 'Siap' : (age < 1 ? 'Baru masuk' : age + ' min')}</span></div>
+    <div class="qc-head"><span class="on num">${fmtNo(s.no)}${s.web ? ' <span class="pill web" style="vertical-align:middle">Online</span>' : ''}${isPaidOf(s) ? '' : ' <span class="pill due" style="vertical-align:middle">Belum bayar</span>'}</span><span class="age num">${ready ? 'Siap' : (age < 1 ? 'Baru masuk' : age + ' min')}</span></div>
+    ${s.cust ? `<span class="cust"><b>${esc(s.cust.name)}</b> · ${esc(s.cust.phone)} · Ambil: <b>${esc(s.cust.pickup)}</b>${s.cust.note ? ' · ' + esc(s.cust.note) : ''}</span>` : ''}
     <ul class="qitems">${s.items.map((i,idx) => !show(i) ? '' : `
       <li><label class="${i.done||ready?'done':''}">
         <input type="checkbox" id="k-${s.id}-${idx}" data-k="${s.id}" data-ix="${idx}" ${i.done||ready?'checked':''} ${ready?'disabled':''}>
@@ -791,7 +801,7 @@ $('view-kitchen').addEventListener('change', e => {
   const cb = e.target.closest('[data-k]'); if(!cb) return;
   const s = sales.find(x=>x.id===cb.dataset.k); s.items[+cb.dataset.ix].done = cb.checked;
   save(K.sales, sales);
-  if(s.items.every(i=>i.done)){ s.status='siap'; s.readyAt=new Date().toISOString(); save(K.sales, sales); toast(fmtNo(s.no)+' siap'); renderKitchen(); renderUnpaid(); }
+  if(s.items.every(i=>i.done)){ s.status='siap'; s.readyAt=new Date().toISOString(); touch(s); save(K.sales, sales); queueSync(); toast(fmtNo(s.no)+' siap'); renderKitchen(); renderUnpaid(); }
   else if(kStation!=='Semua' && s.items.filter(i=>stOf(i)===kStation).every(i=>i.done)){ toast(fmtNo(s.no)+': '+kStation+' siap'); renderKitchen(); }
   else cb.closest('label').classList.toggle('done', cb.checked);
 });
@@ -833,10 +843,10 @@ $('view-kitchen').addEventListener('click', e => {
   const stb = e.target.closest('[data-st]'); if(stb){ kStation = stb.dataset.st; renderKitchen(); return; }
   if(r){ const s = sales.find(x=>x.id===r.dataset.ready);
     s.items.forEach(i=>{ if(kStation==='Semua' || stOf(i)===kStation) i.done=true; });
-    if(s.items.every(i=>i.done)){ s.status='siap'; s.readyAt=new Date().toISOString(); toast(fmtNo(s.no)+' siap'); }
+    if(s.items.every(i=>i.done)){ s.status='siap'; s.readyAt=new Date().toISOString(); touch(s); queueSync(); toast(fmtNo(s.no)+' siap'); }
     else toast(fmtNo(s.no)+': '+kStation+' siap');
     save(K.sales, sales); renderKitchen(); renderUnpaid(); }
-  if(p){ const s = sales.find(x=>x.id===p.dataset.pick); s.status='diambil'; s.pickedAt=new Date().toISOString(); save(K.sales, sales); renderKitchen(); }
+  if(p){ const s = sales.find(x=>x.id===p.dataset.pick); s.status='diambil'; s.pickedAt=new Date().toISOString(); touch(s); save(K.sales, sales); queueSync(); renderKitchen(); }
 });
 setInterval(() => { if(!$('view-kitchen').hidden) renderKitchen(); }, 30000);
 
@@ -988,6 +998,19 @@ function renderMenuEditor(){
         <button class="btn ghost" id="syncNowBtn">Sync sekarang</button>
         <span class="note" id="syncMsg">${esc(syncStatusText())}</span>
       </div>
+    </div>
+    <div class="panel" style="margin-top:18px">
+      <h3>Order online (self pickup)</h3>
+      <p class="note" style="margin:0 0 12px">Pelanggan order dari page <b>order.html</b>, bayar di kaunter semasa ambil. Order baru masuk ke Dapur dengan bunyi loceng. Perlu link Google Sheets di atas.</p>
+      <div class="wtoggle">
+        <span class="state ${cfg.webOpen ? 'on' : 'off'}">${cfg.webOpen ? 'DIBUKA' : 'DITUTUP'}</span>
+        <button class="btn ${cfg.webOpen ? 'ghost' : 'pri'}" id="webToggle" style="flex:0 0 auto;padding-inline:20px">${cfg.webOpen ? 'Tutup order online' : 'Buka order online'}</button>
+        <span class="note" id="webMsg">${cfg.url ? '' : 'Sambung Google Sheets dulu.'}</span>
+      </div>
+      <label class="lbl" for="webNote" style="display:block;margin:14px 0 6px">Pesanan untuk pelanggan (pilihan)</label>
+      <input class="rmtext" id="webNote" type="text" maxlength="200" value="${esc(cfg.webNote||'')}" placeholder="Contoh: Ambil di kaunter A&amp;A Kitchen, depan Future U Cafe">
+      <div class="bar-actions"><button class="btn ghost" id="webNoteSave">Simpan pesanan</button>
+        <span class="note">Link untuk pelanggan: <b>${esc(location.origin + location.pathname.replace(/[^/]*$/, ''))}order.html</b></span></div>
     </div>`;
 }
 $('view-menu').addEventListener('click', e => {
@@ -1001,16 +1024,21 @@ $('view-menu').addEventListener('click', e => {
     return;
   }
   if(e.target.id==='syncNowBtn'){ syncNow(true); return; }
+  if(e.target.id==='webToggle'){
+    if(!cfg.url){ $('webMsg').textContent = 'Sambung Google Sheets dulu.'; return; }
+    cfg.webOpen = !cfg.webOpen; save(K.cfg, cfg); renderMenuEditor(); pushMenu(true, true); return;
+  }
+  if(e.target.id==='webNoteSave'){ cfg.webNote = $('webNote').value.trim(); save(K.cfg, cfg); pushMenu(true, true); return; }
   if(e.target.id==='saveMenu'){
     $('view-menu').querySelectorAll('[data-p]').forEach(inp => { const it = menu.find(i=>i.id===inp.dataset.p); const v = parseFloat(inp.value); if(!isNaN(v) && v>=0) it.price = SEN(v); });
     $('view-menu').querySelectorAll('[data-av]').forEach(cb => { menu.find(i=>i.id===cb.dataset.av).avail = cb.checked; });
     const ok = save(K.menu, menu);
     $('menuMsg').textContent = ok ? 'Harga disimpan.' : 'Tak dapat simpan dalam peranti ini.';
-    renderMenu();
+    renderMenu(); pushMenu(true);
   }
   if(e.target.id==='resetMenu'){
     const b = e.target;
-    if(b.dataset.confirm){ menu = DEFAULT_MENU.map(d=>({...d})); save(K.menu, menu); renderMenuEditor(); renderMenu(); toast('Harga asal dipulihkan'); }
+    if(b.dataset.confirm){ menu = DEFAULT_MENU.map(d=>({...d})); save(K.menu, menu); renderMenuEditor(); renderMenu(); pushMenu(true); toast('Harga asal dipulihkan'); }
     else { b.dataset.confirm='1'; b.textContent='Tekan lagi untuk sahkan'; }
   }
 });
@@ -1111,7 +1139,7 @@ function updateSyncPill(){
   const m = document.getElementById('syncMsg'); if(m) m.textContent = syncStatusText();
 }
 function queueSync(){ updateSyncPill(); clearTimeout(syncTimer); syncTimer = setTimeout(() => syncNow(false), 1500); }
-const slim = s => ({id:s.id, day:s.day, no:s.no, time:s.time, isPaid:isPaidOf(s), method:s.method||'', wallet:s.wallet||'',
+const slim = s => ({id:s.id, day:s.day, no:s.no, time:s.time, web:!!s.web, status: statusOf(s), isPaid:isPaidOf(s), method:s.method||'', wallet:s.wallet||'',
   total:s.total, prepaid: isPaidOf(s) ? s.total : (s.prepaid||0), paid:s.paid||0, change:s.change||0, void:!!s.void, paidAt:s.paidAt||'',
   items:s.items.map(i=>({label:i.label, qty:i.qty, unit:i.unit, addons:i.addons||[], notes:i.notes||[], station:i.station||''}))});
 async function syncNow(manual){
@@ -1139,6 +1167,90 @@ async function syncNow(manual){
 window.addEventListener('online', () => syncNow(false));
 setInterval(() => syncNow(false), 60000);
 
+/* ---------- order online: hantar menu, terima order ---------- */
+function menuPayload(){
+  return {action:'menu', open: !!cfg.webOpen, note: cfg.webNote || '', cats: CATS,
+    items: menu.map(i => ({id:i.id, cat:i.cat, group:i.group, name:i.name, label:itemLabel(i), price:i.price, avail:!!i.avail, addons:i.addons||'', station:i.station||''})),
+    addons: ADDONS, remarks: {burger: REMARKS, blended: REMARKS_AIR}};
+}
+function hashStr(t){ let h = 0; for(let i=0;i<t.length;i++){ h = (h*31 + t.charCodeAt(i)) | 0; } return String(h); }
+async function pushMenu(force, announce){
+  if(!cfg.url || !navigator.onLine) return;
+  const body = JSON.stringify(menuPayload()), h = hashStr(body);
+  if(!force && cfg.menuHash === h) return;
+  try{
+    const r = await fetch(cfg.url, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body});
+    const j = await r.json(); if(!j.ok) throw 0;
+    cfg.menuHash = h; save(K.cfg, cfg);
+    if(announce) toast(cfg.webOpen ? 'Order online DIBUKA' : 'Order online DITUTUP');
+    const m = document.getElementById('webMsg'); if(m) m.textContent = 'Menu & status dihantar ke Google Sheet.';
+  }catch(e){ const m = document.getElementById('webMsg'); if(m) m.textContent = 'Tak dapat hantar ke Google Sheet. Cuba lagi bila online.'; }
+}
+
+let audioCtx = null;
+document.addEventListener('pointerdown', () => { try{ audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==='suspended') audioCtx.resume(); }catch(e){} }, {once:false, passive:true});
+function chime(){
+  try{
+    const ctx = audioCtx || new (window.AudioContext||window.webkitAudioContext)(); audioCtx = ctx;
+    [[880,0],[1175,0.18],[1568,0.36],[880,0.9],[1175,1.08],[1568,1.26]].forEach(([f,t]) => {
+      const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, ctx.currentTime + t); g.gain.exponentialRampToValueAtTime(0.35, ctx.currentTime + t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + t + 0.35);
+      o.connect(g).connect(ctx.destination); o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + 0.4);
+    });
+  }catch(e){}
+}
+let titleTimer = null; const baseTitle = document.title;
+function flashTitle(msg){ clearInterval(titleTimer); let on = false; titleTimer = setInterval(() => { document.title = (on = !on) ? msg : baseTitle; }, 1000); }
+document.addEventListener('visibilitychange', () => { if(!document.hidden){ clearInterval(titleTimer); document.title = baseTitle; } });
+
+let polling = false;
+async function pollOnline(){
+  if(!cfg.url || !navigator.onLine || polling) return;
+  polling = true;
+  try{
+    const r = await fetch(cfg.url + '?action=inbox&t=' + Date.now()); const j = await r.json();
+    if(!j.ok) throw 0;
+    const fresh = (j.orders || []).filter(o => !sales.some(x => x.id === o.id));
+    const ackIds = (j.orders || []).map(o => o.id);
+    fresh.forEach(o => {
+      sales.push({id:o.id, day:o.day, no:o.no, time:o.time, web:true,
+        cust:{name:o.name, phone:o.phone, pickup:o.pickup, note:o.note||''},
+        method:null, wallet:null, total:o.total, paid:0, change:0, isPaid:false, prepaid:0, payments:[], paidAt:null,
+        items:o.items.map(i => ({label:i.label, addons:i.addons||[], notes:i.notes||[], unit:i.unit, qty:i.qty, station:i.station||'Burger', done:false})),
+        void:false, synced:false, rev:1, status:'baru'});
+    });
+    if(fresh.length){
+      save(K.sales, sales); updateBadge(); renderUnpaid(); queueSync();
+      if(!$('view-kitchen').hidden) renderKitchen();
+      notifyNew(fresh);
+    }
+    if(ackIds.length){
+      await fetch(cfg.url, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({action:'ack', ids: ackIds})});
+    }
+  }catch(e){}
+  polling = false;
+}
+function notifyNew(list){
+  chime();
+  const nos = list.map(o => fmtNo(o.no)).join(', ');
+  flashTitle('● Order baharu ' + nos);
+  openModal(`
+    <div class="done">
+      <div class="lbl" style="color:#1F6FB2">Order online · self pickup</div>
+      <h3 style="margin:6px 0 4px;font-size:30px">Anda mempunyai order baharu ${esc(nos)}</h3>
+    </div>
+    <ul class="newo">${list.map(o => `<li><b class="num">${esc(fmtNo(o.no))}</b>${esc(o.name)} · ${esc(o.phone)}<br>
+      <span class="note">Ambil: ${esc(o.pickup)} · ${o.items.reduce((a,i)=>a+i.qty,0)} item · <b class="num">${RM(o.total)}</b> (bayar di kaunter)</span></li>`).join('')}</ul>
+    <div class="row"><button class="btn sec" data-x>Tutup</button><button class="btn pri" data-go data-focus>Lihat di Dapur</button></div>
+  `, m => {
+    m.querySelector('[data-x]').addEventListener('click', closeModal);
+    m.querySelector('[data-go]').addEventListener('click', () => { closeModal(); show('kitchen'); });
+  });
+}
+setInterval(pollOnline, 15000);
+window.addEventListener('online', () => { pollOnline(); pushMenu(false); });
+
 /* ---------- misc ---------- */
 let tt;
 function toast(msg){ const t=$('toast'); t.textContent=msg; t.hidden=false; clearTimeout(tt); tt=setTimeout(()=>t.hidden=true,1600); }
@@ -1146,6 +1258,7 @@ function net(){ const on = navigator.onLine; $('net').textContent = on ? 'Online
 window.addEventListener('online', net); window.addEventListener('offline', net); net();
 
 renderSale(); updateBadge(); updateSyncPill(); setTimeout(() => syncNow(false), 2000);
+setTimeout(() => { pushMenu(false); pollOnline(); }, 3000);
 
 /* ---------- PWA: offline + storan kekal ---------- */
 if('serviceWorker' in navigator){ window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(()=>{}); }); }

@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="ms">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Order A&amp;A Kitchen</title>
+<meta name="theme-color" content="#D7261E">
+<meta name="description" content="Order burger, snek dan minuman A&amp;A Kitchen. Self pickup, bayar di kaunter.">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: phone-first ordering — sticky header + category rail, menu list, floating cart bar, bottom sheets */
+:root{
+  --red:#D7261E; --red-d:#A9180F; --yellow:#FFC72C; --ink:#1E140A; --ink-2:#6B5644;
+  --cream:#FFF6E6; --card:#FFFFFF; --line:#EEDFC8; --ok:#1F7A4D; --ok-bg:#E3F3EA; --blue:#1F6FB2;
+  --f-display:'Anton','Impact','Arial Narrow',sans-serif;
+  --f-label:'Barlow Condensed','Arial Narrow',sans-serif;
+  --f-body:'Barlow',system-ui,-apple-system,'Segoe UI',sans-serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--cream);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.4;
+  padding-bottom:calc(110px + env(safe-area-inset-bottom,0px))}
+[hidden]{display:none!important}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+.wrap{max-width:760px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+/* hero */
+.hero{background:var(--red);color:#fff;position:relative;overflow:hidden;padding-top:env(safe-area-inset-top,0px)}
+.hero::before{content:"";position:absolute;inset:-60% -20% auto;height:220%;background:repeating-conic-gradient(from 0deg at 50% 50%,rgba(255,255,255,.07) 0 8deg,transparent 8deg 16deg);pointer-events:none}
+.hero .wrap{position:relative;padding-block:20px 22px;display:flex;align-items:center;gap:14px}
+.hero img{width:58px;height:58px;border-radius:14px;border:3px solid #fff;box-shadow:4px 4px 0 var(--ink);flex:0 0 auto}
+.hero h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:clamp(30px,8vw,42px);line-height:1;letter-spacing:1px;text-shadow:3px 3px 0 var(--ink)}
+.hero p{margin:4px 0 0;font-family:var(--f-label);font-weight:700;font-size:15px;letter-spacing:2px;text-transform:uppercase;color:var(--yellow)}
+.stat{margin-left:auto;flex:0 0 auto;font-family:var(--f-label);font-weight:800;font-size:14px;letter-spacing:1px;padding:6px 12px;border-radius:999px;background:var(--yellow);color:var(--ink)}
+.stat.closed{background:var(--ink);color:var(--yellow)}
+
+.strip{background:var(--yellow);border-bottom:3px solid var(--ink)}
+.strip .wrap{padding-block:10px;display:flex;gap:8px 16px;flex-wrap:wrap;font-family:var(--f-label);font-weight:700;font-size:15px;letter-spacing:.5px}
+.strip span{display:inline-flex;align-items:center;gap:6px}
+.strip svg{width:18px;height:18px;flex:0 0 auto}
+
+/* category rail */
+.rail{position:sticky;top:0;z-index:20;background:var(--cream);border-bottom:2px solid var(--line)}
+.rail .wrap{display:flex;gap:8px;overflow-x:auto;padding-block:10px;scrollbar-width:none}
+.rail .wrap::-webkit-scrollbar{display:none}
+.rail button{flex:0 0 auto;border:2px solid var(--ink);background:var(--card);border-radius:999px;padding:7px 14px;font-family:var(--f-label);font-weight:700;font-size:16px;white-space:nowrap}
+.rail button[aria-current="true"]{background:var(--ink);color:var(--yellow)}
+
+/* menu */
+.sec{scroll-margin-top:70px;padding-top:18px}
+.sec h2{margin:0 0 10px;font-family:var(--f-display);font-weight:400;font-size:28px;letter-spacing:1px;color:var(--red)}
+.grp{font-family:var(--f-label);font-weight:800;font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--ink-2);margin:12px 0 6px}
+.list{display:flex;flex-direction:column;gap:8px}
+.it{display:flex;align-items:center;gap:12px;background:var(--card);border:2px solid var(--line);border-radius:14px;padding:12px 12px 12px 14px;text-align:left;width:100%}
+.it:hover{border-color:var(--ink)}
+.it .nm{flex:1;min-width:0}
+.it .nm b{display:block;font-weight:700;font-size:16px;line-height:1.2}
+.it .nm small{display:block;color:var(--ink-2);font-size:13px;margin-top:2px}
+.it .pr{font-family:var(--f-display);font-size:20px;color:var(--red);flex:0 0 auto}
+.it .add{flex:0 0 auto;width:38px;height:38px;border-radius:50%;background:var(--red);color:#fff;display:grid;place-items:center;font-size:24px;line-height:1;box-shadow:2px 2px 0 var(--ink)}
+.it .qtyb{flex:0 0 auto;min-width:38px;height:38px;border-radius:50%;background:var(--ink);color:var(--yellow);display:grid;place-items:center;font-family:var(--f-display);font-size:18px}
+.it[disabled]{opacity:.45;cursor:not-allowed}
+.it[disabled] .add{background:var(--ink-2)}
+
+/* cart bar */
+.cartbar{position:fixed;left:0;right:0;bottom:0;z-index:30;padding:12px max(16px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));background:linear-gradient(transparent,var(--cream) 30%)}
+.cartbar button{display:flex;align-items:center;gap:12px;width:100%;max-width:728px;margin:0 auto;border:3px solid var(--ink);background:var(--red);color:#fff;border-radius:16px;padding:14px 18px;box-shadow:5px 5px 0 var(--ink);font-family:var(--f-label);font-weight:800;font-size:20px;letter-spacing:1px}
+.cartbar .cnt{background:#fff;color:var(--red);border-radius:999px;min-width:30px;padding:2px 8px;font-size:17px}
+.cartbar .tot{margin-left:auto;font-family:var(--f-display);font-weight:400;font-size:22px}
+
+/* sheet */
+.scrim{position:fixed;inset:0;z-index:50;background:rgba(30,20,10,.55);display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--card);width:100%;max-width:640px;max-height:92vh;overflow:auto;border-radius:22px 22px 0 0;padding:20px max(18px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(18px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:14px}
+@media (min-width:700px){.scrim{align-items:center}.sheet{border-radius:22px;max-height:88vh}}
+.sheet h3{margin:0;font-family:var(--f-display);font-weight:400;font-size:28px;line-height:1.05}
+.sheet .sub{margin-top:-8px;color:var(--ink-2)}
+.lbl{font-family:var(--f-label);font-weight:800;font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--ink-2);display:block;margin-bottom:8px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:2px solid var(--line);background:var(--card);border-radius:999px;padding:9px 14px;font-weight:600;font-size:14px}
+.chip[aria-pressed="true"]{border-color:var(--ink);background:var(--ink);color:var(--yellow)}
+.field{width:100%;height:48px;padding:0 14px;border-radius:12px;border:2px solid var(--line);background:var(--cream);color:var(--ink);font:inherit;font-weight:600}
+.qrow{display:flex;align-items:center;gap:12px}
+.qrow .q{display:flex;align-items:center;gap:10px;margin-left:auto}
+.qrow .q button{width:42px;height:42px;border-radius:12px;border:2px solid var(--ink);background:var(--card);font-weight:800;font-size:20px}
+.qrow .q span{min-width:26px;text-align:center;font-family:var(--f-display);font-size:22px}
+.btn{border:3px solid var(--ink);border-radius:14px;padding:14px;font-family:var(--f-label);font-weight:800;font-size:19px;letter-spacing:1px;min-height:54px;width:100%}
+.btn.pri{background:var(--red);color:#fff;box-shadow:4px 4px 0 var(--ink)}
+.btn.sec{background:var(--card)}
+.btn[disabled]{opacity:.5;cursor:not-allowed;box-shadow:none}
+.row{display:flex;gap:10px}
+.row>*{flex:1}
+.lines{list-style:none;margin:0;padding:0}
+.lines li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;padding:12px 0;border-bottom:1px solid var(--line)}
+.lines .ln{font-weight:700}
+.lines .la{grid-column:1/-1;font-size:13px;color:var(--ink-2);margin-top:-2px}
+.lines .lt{font-weight:700;text-align:right}
+.lines .q{grid-column:1/-1;display:flex;align-items:center;gap:8px}
+.lines .q button{width:34px;height:34px;border-radius:10px;border:2px solid var(--line);background:var(--cream);font-weight:800}
+.lines .q .rm{margin-left:auto;width:auto;border:0;background:none;color:var(--red);font-weight:700;text-decoration:underline}
+.total{display:flex;justify-content:space-between;align-items:baseline;padding-top:4px}
+.total b{font-family:var(--f-display);font-weight:400;font-size:34px}
+.info{background:var(--yellow);border:2px solid var(--ink);border-radius:12px;padding:10px 12px;font-weight:600;font-size:14px}
+.err{background:#FDE9E7;color:var(--red-d);border-radius:12px;padding:10px 12px;font-weight:600;font-size:14px}
+
+/* done view */
+.done{padding-block:26px 40px;display:flex;flex-direction:column;gap:16px}
+.ticket{background:var(--card);border:3px solid var(--ink);border-radius:22px;box-shadow:7px 7px 0 var(--ink);padding:22px;text-align:center}
+.ticket .lbl{margin-bottom:4px}
+.ticket .big{font-family:var(--f-display);font-size:88px;line-height:1;color:var(--red);letter-spacing:2px}
+.ticket .who{font-weight:600;color:var(--ink-2)}
+.steps{list-style:none;margin:18px 0 0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.steps li{display:flex;flex-direction:column;align-items:center;gap:6px;font-family:var(--f-label);font-weight:700;font-size:14px;color:var(--ink-2)}
+.steps i{width:100%;height:8px;border-radius:4px;background:var(--line)}
+.steps li.on i{background:var(--red)} .steps li.on{color:var(--ink)}
+.steps li.ok i{background:var(--ok)} .steps li.ok{color:var(--ok)}
+.bigstat{margin-top:14px;font-family:var(--f-display);font-size:26px;letter-spacing:1px}
+.bigstat.ready{color:var(--ok)}
+.mine{display:flex;flex-direction:column;gap:8px}
+.mine button{display:flex;justify-content:space-between;align-items:center;border:2px solid var(--line);background:var(--card);border-radius:12px;padding:12px 14px;text-align:left}
+.mine b{font-family:var(--f-display);font-weight:400;font-size:22px;color:var(--red)}
+
+.empty{padding:40px 0;text-align:center;color:var(--ink-2)}
+.foot{text-align:center;color:var(--ink-2);font-size:13px;padding:30px 0 10px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(96px + env(safe-area-inset-bottom,0px));z-index:60;background:var(--ink);color:var(--yellow);padding:10px 18px;border-radius:999px;font-weight:700;white-space:nowrap}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <img src="icons/icon-192.png" alt="">
+    <div>
+      <h1>A &amp; A KITCHEN</h1>
+      <p>Order &amp; ambil sendiri</p>
+    </div>
+    <span class="stat" id="stat">…</span>
+  </div>
+</header>
+<div class="strip"><div class="wrap">
+  <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M3 9l9-6 9 6v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21V12h6v9"/></svg>Self pickup sahaja</span>
+  <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M2 10h20"/></svg>Bayar di kaunter</span>
+  <span id="shopNote" hidden></span>
+</div></div>
+
+<main id="menuView">
+  <nav class="rail" aria-label="Kategori"><div class="wrap" id="rail"></div></nav>
+  <div class="wrap">
+    <div id="menuBody"><p class="empty">Memuatkan menu…</p></div>
+    <div id="mineBox" hidden style="margin-top:26px">
+      <span class="lbl">Order anda hari ini</span>
+      <div class="mine" id="mine"></div>
+    </div>
+    <p class="foot">Harga dalam Ringgit Malaysia. Order disediakan selepas diterima kaunter.</p>
+  </div>
+</main>
+
+<main id="doneView" hidden>
+  <div class="wrap done" id="doneBody"></div>
+</main>
+
+<div class="cartbar" id="cartbar" hidden><button id="cartBtn" type="button"><span class="cnt num" id="cbCount">0</span> Semak order <span class="tot num" id="cbTotal">RM 0.00</span></button></div>
+<div class="scrim" id="scrim" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/* ===== Tetapan: tampal link Web App Google Apps Script anda di sini ===== */
+const API = 'TAMPAL_LINK_WEB_APP_DI_SINI';
+/* ======================================================================= */
+
+(function(){
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const RM = s => 'RM ' + (s/100).toFixed(2);
+const LS = {cart:'aak_web_cart', me:'aak_web_me', orders:'aak_web_orders'};
+const load = (k, fb) => { try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : fb; }catch(e){ return fb; } };
+const save = (k, v) => { try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} };
+const today = () => { const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+
+let M = null;               // menu dari server
+let cart = load(LS.cart, []);
+let me = load(LS.me, {name:'', phone:''});
+let myOrders = load(LS.orders, []).filter(o => o.day === today());
+let tt;
+function toast(t){ const el = $('toast'); el.textContent = t; el.hidden = false; clearTimeout(tt); tt = setTimeout(() => el.hidden = true, 1800); }
+
+const apiReady = () => /^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(API);
+
+async function loadMenu(){
+  if(!apiReady()){ $('menuBody').innerHTML = '<p class="empty">Page ini belum disambung. Pemilik kedai perlu tampal link Web App dalam fail order.html.</p>'; setStat(false); return; }
+  try{
+    const r = await fetch(API + '?action=menu&t=' + Date.now()); const j = await r.json();
+    if(!j.ok) throw 0;
+    M = j; setStat(j.open && j.ready);
+    if(j.note){ $('shopNote').hidden = false; $('shopNote').textContent = j.note; }
+    renderMenu(); renderCartBar(); renderMine();
+  }catch(e){
+    $('menuBody').innerHTML = '<p class="empty">Tak dapat muat menu. Semak internet dan cuba lagi.</p><div style="max-width:240px;margin:0 auto"><button class="btn sec" id="retry">Cuba lagi</button></div>';
+    $('retry').onclick = loadMenu; setStat(false);
+  }
+}
+function setStat(open){ const s = $('stat'); s.textContent = open ? 'BUKA' : 'TUTUP'; s.classList.toggle('closed', !open); }
+const isOpen = () => M && M.open && M.ready;
+
+function renderMenu(){
+  const cats = (M.cats || []).filter(c => M.items.some(i => i.cat === c.id));
+  $('rail').innerHTML = cats.map((c,i) => `<button data-jump="${esc(c.id)}" aria-current="${i===0}">${esc(c.name)}</button>`).join('');
+  const qtyOf = id => cart.filter(c => c.id === id).reduce((a,c) => a + c.qty, 0);
+  $('menuBody').innerHTML = (!isOpen() ? '<div class="err" style="margin-top:16px">Kedai tak terima order online sekarang. Menu di bawah untuk rujukan sahaja.</div>' : '') +
+    cats.map(c => {
+      const items = M.items.filter(i => i.cat === c.id);
+      const groups = [...new Set(items.map(i => i.group))];
+      return `<section class="sec" id="sec-${esc(c.id)}"><h2>${esc(c.name)}</h2>` + groups.map(g => `
+        ${groups.length > 1 ? `<div class="grp">${esc(g)}</div>` : ''}
+        <div class="list">${items.filter(i => i.group === g).map(i => {
+          const q = qtyOf(i.id), off = !i.avail || !isOpen();
+          return `<button class="it" data-id="${esc(i.id)}" ${off ? 'disabled' : ''}>
+            <span class="nm"><b>${esc(i.label)}</b>${!i.avail ? '<small>Habis</small>' : (i.addons ? '<small>Boleh pilih add-on</small>' : '')}</span>
+            <span class="pr num">${RM(i.price)}</span>
+            ${q ? `<span class="qtyb num" aria-label="${q} dalam troli">${q}</span>` : '<span class="add" aria-hidden="true">+</span>'}
+          </button>`; }).join('')}</div>`).join('') + '</section>';
+    }).join('');
+}
+$('rail').addEventListener('click', e => {
+  const b = e.target.closest('[data-jump]'); if(!b) return;
+  $('rail').querySelectorAll('button').forEach(x => x.setAttribute('aria-current', String(x === b)));
+  const sec = $('sec-' + b.dataset.jump); if(sec) sec.scrollIntoView({behavior:'smooth', block:'start'});
+});
+$('menuBody').addEventListener('click', e => {
+  const b = e.target.closest('.it'); if(!b || b.disabled) return;
+  const item = M.items.find(i => i.id === b.dataset.id);
+  if(item.addons) openItem(item); else addLine(item, [], [], '', 1);
+});
+
+function lineKey(id, ad, nt, ex){ return id + '|' + ad.slice().sort().join(',') + '|' + nt.join(';') + '|' + ex; }
+function unitOf(item, ad){ const g = (M.addons || {})[item.addons] || []; return item.price + g.filter(a => ad.includes(a.id)).reduce((s,a) => s + a.price, 0); }
+function addLine(item, ad, nt, ex, qty){
+  const key = lineKey(item.id, ad, nt, ex);
+  const ln = cart.find(c => c.key === key);
+  if(ln) ln.qty += qty; else cart.push({key, id:item.id, addons:ad, notes:nt, extra:ex, qty});
+  save(LS.cart, cart); renderMenu(); renderCartBar(); toast('Ditambah: ' + item.label);
+}
+
+/* ----- sheet ----- */
+function openSheet(html, bind){ const old = $('sheet'), f = old.cloneNode(false); old.replaceWith(f); f.innerHTML = html; $('scrim').hidden = false; document.body.style.overflow = 'hidden'; bind && bind(f); const x = f.querySelector('[data-focus]'); x && x.focus(); }
+function closeSheet(){ $('scrim').hidden = true; document.body.style.overflow = ''; }
+$('scrim').addEventListener('click', e => { if(e.target === $('scrim')) closeSheet(); });
+document.addEventListener('keydown', e => { if(e.key === 'Escape' && !$('scrim').hidden) closeSheet(); });
+
+function openItem(item){
+  const grp = (M.addons || {})[item.addons] || [];
+  const food = grp.filter(a => !a.drink), drinks = grp.filter(a => a.drink);
+  const rmk = (M.remarks || {})[item.addons === 'blended' ? 'blended' : 'burger'] || [];
+  const sel = new Set(), rs = new Set(); let qty = 1;
+  const chip = a => `<button class="chip" data-ad="${esc(a.id)}" aria-pressed="false">${esc(a.name)} <span class="num">+${RM(a.price)}</span></button>`;
+  openSheet(`
+    <h3>${esc(item.label)}</h3><div class="sub num">${RM(item.price)}</div>
+    ${food.length ? `<div><span class="lbl">Add-on</span><div class="chips">${food.map(chip).join('')}</div></div>` : ''}
+    ${drinks.length ? `<div><span class="lbl">Tambah air</span><div class="chips">${drinks.map(chip).join('')}</div></div>` : ''}
+    ${rmk.length ? `<div><span class="lbl">Remark</span><div class="chips">${rmk.map(r => `<button class="chip" data-rm="${esc(r)}" aria-pressed="false">${esc(r)}</button>`).join('')}</div></div>` : ''}
+    <div><label class="lbl" for="ex">Nota lain (pilihan)</label><input class="field" id="ex" maxlength="60" placeholder="Contoh: bawang lebih" autocomplete="off"></div>
+    <div class="qrow"><span class="lbl" style="margin:0">Kuantiti</span><div class="q"><button data-q="-1" aria-label="Kurang">−</button><span class="num" id="qv">1</span><button data-q="1" aria-label="Tambah">+</button></div></div>
+    <div class="row"><button class="btn sec" data-x>Batal</button><button class="btn pri" data-ok data-focus>Tambah · <span class="num" id="tv">${RM(item.price)}</span></button></div>
+  `, f => {
+    const upd = () => { f.querySelector('#qv').textContent = qty; f.querySelector('#tv').textContent = RM(unitOf(item, [...sel]) * qty); };
+    f.addEventListener('click', e => {
+      const a = e.target.closest('[data-ad]');
+      if(a){ const id = a.dataset.ad, isDrink = drinks.some(d => d.id === id);
+        if(isDrink && !sel.has(id)) drinks.forEach(d => { sel.delete(d.id); const el = f.querySelector(`[data-ad="${d.id}"]`); el && el.setAttribute('aria-pressed','false'); });
+        sel.has(id) ? sel.delete(id) : sel.add(id); a.setAttribute('aria-pressed', String(sel.has(id))); upd(); return; }
+      const r = e.target.closest('[data-rm]'); if(r){ const v = r.dataset.rm; rs.has(v) ? rs.delete(v) : rs.add(v); r.setAttribute('aria-pressed', String(rs.has(v))); return; }
+      const q = e.target.closest('[data-q]'); if(q){ qty = Math.max(1, Math.min(20, qty + +q.dataset.q)); upd(); return; }
+      if(e.target.closest('[data-x]')) return closeSheet();
+      if(e.target.closest('[data-ok]')){ addLine(item, [...sel], rmk.filter(x => rs.has(x)), f.querySelector('#ex').value.trim(), qty); closeSheet(); }
+    });
+  });
+}
+
+/* ----- cart ----- */
+function validCart(){ return cart.filter(c => M && M.items.some(i => i.id === c.id && i.avail)); }
+function cartTotal(){ return validCart().reduce((s,c) => s + unitOf(M.items.find(i => i.id === c.id), c.addons) * c.qty, 0); }
+function renderCartBar(){
+  const n = validCart().reduce((a,c) => a + c.qty, 0);
+  $('cartbar').hidden = !n || !isOpen() || !$('doneView').hidden;
+  $('cbCount').textContent = n; $('cbTotal').textContent = RM(cartTotal());
+}
+$('cartBtn').addEventListener('click', openCheckout);
+
+const PICKUP = ['Secepat mungkin','Dalam 15 minit','Dalam 30 minit','Dalam 45 minit','Dalam 1 jam'];
+function openCheckout(){
+  cart = validCart(); save(LS.cart, cart);
+  let pickup = PICKUP[0];
+  const draw = f => {
+    const body = f.querySelector('#lines');
+    if(!cart.length){ closeSheet(); renderMenu(); renderCartBar(); return; }
+    body.innerHTML = cart.map((c,idx) => { const it = M.items.find(i => i.id === c.id); const g = (M.addons||{})[it.addons] || [];
+      const adn = g.filter(a => c.addons.includes(a.id)).map(a => a.name);
+      return `<li><span class="ln">${esc(it.label)}</span><span class="lt num">${RM(unitOf(it, c.addons) * c.qty)}</span>
+        ${adn.length || c.notes.length || c.extra ? `<span class="la">${esc([adn.length ? '+ ' + adn.join(', ') : '', c.notes.join(', '), c.extra].filter(Boolean).join(' · '))}</span>` : ''}
+        <span class="q"><button data-a="-1" data-i="${idx}" aria-label="Kurang">−</button><b class="num">${c.qty}</b><button data-a="1" data-i="${idx}" aria-label="Tambah">+</button><button class="rm" data-a="rm" data-i="${idx}">Buang</button></span></li>`; }).join('');
+    f.querySelector('#tot').textContent = RM(cartTotal());
+  };
+  openSheet(`
+    <h3>Order anda</h3>
+    <ul class="lines" id="lines"></ul>
+    <div class="total"><span class="lbl" style="margin:0">Jumlah (bayar di kaunter)</span><b class="num" id="tot"></b></div>
+    <div><label class="lbl" for="nm">Nama</label><input class="field" id="nm" maxlength="40" autocomplete="name" value="${esc(me.name)}" placeholder="Nama untuk dipanggil"></div>
+    <div><label class="lbl" for="ph">No. telefon</label><input class="field" id="ph" type="tel" inputmode="tel" maxlength="15" autocomplete="tel" value="${esc(me.phone)}" placeholder="01x-xxxxxxx"></div>
+    <div><span class="lbl">Masa ambil</span><div class="chips">${PICKUP.map((p,i) => `<button class="chip" data-pk="${esc(p)}" aria-pressed="${i===0}">${esc(p)}</button>`).join('')}</div></div>
+    <div><label class="lbl" for="nt">Nota untuk kedai (pilihan)</label><input class="field" id="nt" maxlength="120" autocomplete="off" placeholder="Contoh: saya tunggu dalam kereta"></div>
+    <div class="info">Self pickup sahaja. Ambil dan bayar di kaunter A&amp;A Kitchen. Tunjuk nombor order anda.</div>
+    <div class="err" id="cerr" hidden></div>
+    <div class="row"><button class="btn sec" data-x>Tambah lagi</button><button class="btn pri" data-send data-focus>Hantar order</button></div>
+  `, f => {
+    draw(f);
+    f.addEventListener('click', async e => {
+      const a = e.target.closest('[data-a]');
+      if(a){ const i = +a.dataset.i; if(a.dataset.a === 'rm') cart.splice(i,1); else { cart[i].qty = Math.max(0, Math.min(20, cart[i].qty + +a.dataset.a)); if(!cart[i].qty) cart.splice(i,1); }
+        save(LS.cart, cart); draw(f); renderMenu(); renderCartBar(); return; }
+      const pk = e.target.closest('[data-pk]'); if(pk){ pickup = pk.dataset.pk; f.querySelectorAll('[data-pk]').forEach(x => x.setAttribute('aria-pressed', String(x === pk))); return; }
+      if(e.target.closest('[data-x]')) return closeSheet();
+      const sb = e.target.closest('[data-send]');
+      if(sb){
+        const err = f.querySelector('#cerr'); err.hidden = true;
+        const name = f.querySelector('#nm').value.trim(), phone = f.querySelector('#ph').value.trim();
+        if(name.length < 2){ err.textContent = 'Sila isi nama.'; err.hidden = false; f.querySelector('#nm').focus(); return; }
+        if(phone.replace(/\D/g,'').length < 9){ err.textContent = 'Sila isi nombor telefon yang betul.'; err.hidden = false; f.querySelector('#ph').focus(); return; }
+        me = {name, phone}; save(LS.me, me);
+        sb.disabled = true; sb.textContent = 'Menghantar…';
+        try{
+          const r = await fetch(API, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+            body: JSON.stringify({action:'online_order', name, phone, pickup, note: f.querySelector('#nt').value.trim(),
+              items: cart.map(c => ({id:c.id, qty:c.qty, addons:c.addons, notes:c.notes, extra:c.extra}))})});
+          const j = await r.json();
+          if(!j.ok) throw new Error(j.error || 'Order tak berjaya.');
+          myOrders.push({id:j.id, no:j.no, total:j.total, day: today(), name, pickup, status:'Menunggu kaunter'});
+          save(LS.orders, myOrders);
+          cart = []; save(LS.cart, cart);
+          closeSheet(); showDone(j.id);
+        }catch(ex){
+          err.textContent = ex.message && ex.message !== 'Failed to fetch' ? ex.message : 'Tak dapat hantar order. Semak internet dan cuba lagi.';
+          err.hidden = false; sb.disabled = false; sb.textContent = 'Hantar order';
+        }
+      }
+    });
+  });
+}
+
+/* ----- order status ----- */
+const STEP = {'Menunggu kaunter':0,'Diterima':1,'Sedang disediakan':1,'Siap untuk diambil':2,'Selesai':3,'Dibatalkan':-1};
+let current = null, pollT = null;
+function showDone(id){
+  current = id; $('menuView').hidden = true; $('doneView').hidden = false; renderCartBar(); window.scrollTo(0,0);
+  drawDone(); refreshStatus(); clearInterval(pollT); pollT = setInterval(refreshStatus, 15000);
+}
+function drawDone(){
+  const o = myOrders.find(x => x.id === current); if(!o) return;
+  const st = STEP[o.status] ?? 0;
+  const msg = o.status === 'Dibatalkan' ? 'Order dibatalkan. Sila hubungi kaunter.'
+    : st >= 3 ? 'Order selesai. Terima kasih!'
+    : st === 2 ? 'Siap! Sila ambil di kaunter.'
+    : st === 1 ? 'Sedang disediakan'
+    : 'Menunggu kaunter terima order';
+  $('doneBody').innerHTML = `
+    <div class="ticket">
+      <span class="lbl">Nombor order anda</span>
+      <div class="big num">#${esc(o.no)}</div>
+      <div class="who">${esc(o.name)} · Ambil: ${esc(o.pickup)} · <b class="num">${RM(o.total)}</b></div>
+      <ol class="steps" aria-label="Status order">
+        <li class="${st >= 1 ? 'ok' : (st === 0 ? 'on' : '')}"><i></i>Diterima</li>
+        <li class="${st >= 2 ? 'ok' : (st === 1 ? 'on' : '')}"><i></i>Disediakan</li>
+        <li class="${st >= 2 ? 'ok' : ''}"><i></i>Siap diambil</li>
+      </ol>
+      <div class="bigstat ${st === 2 ? 'ready' : ''}" role="status">${esc(msg)}</div>
+    </div>
+    <div class="info">Tunjuk nombor <b>#${esc(o.no)}</b> di kaunter dan bayar semasa ambil. Status dikemas kini sendiri.</div>
+    <div class="row"><button class="btn sec" id="backMenu">Order lagi</button><button class="btn pri" id="refresh">Semak status</button></div>`;
+  $('backMenu').onclick = () => { clearInterval(pollT); current = null; $('doneView').hidden = true; $('menuView').hidden = false; renderMenu(); renderCartBar(); renderMine(); };
+  $('refresh').onclick = () => { refreshStatus(); toast('Menyemak status…'); };
+}
+async function refreshStatus(){
+  const ids = myOrders.filter(o => STEP[o.status] < 3 && o.status !== 'Dibatalkan').map(o => o.id);
+  if(!ids.length || !apiReady()) return;
+  try{
+    const r = await fetch(API + '?action=status&ids=' + encodeURIComponent(ids.join(',')) + '&t=' + Date.now()); const j = await r.json();
+    if(!j.ok) return;
+    let changed = false;
+    myOrders.forEach(o => { const s = j.orders[o.id]; if(s && s.status && s.status !== o.status){ o.status = s.status; changed = true; } });
+    if(changed){ save(LS.orders, myOrders); if(current) drawDone(); renderMine(); const c = myOrders.find(o => o.id === current); if(c && STEP[c.status] === 2) toast('Order #' + c.no + ' dah siap!'); }
+  }catch(e){}
+}
+function renderMine(){
+  $('mineBox').hidden = !myOrders.length;
+  $('mine').innerHTML = myOrders.slice().reverse().map(o => `<button data-o="${esc(o.id)}"><span><b class="num">#${esc(o.no)}</b> ${esc(o.status)}</span><span class="num">${RM(o.total)}</span></button>`).join('');
+}
+$('mine').addEventListener('click', e => { const b = e.target.closest('[data-o]'); if(b) showDone(b.dataset.o); });
+
+save(LS.orders, myOrders);
+loadMenu();
+refreshStatus();
+const live = myOrders.slice().reverse().find(o => STEP[o.status] < 3 && o.status !== 'Dibatalkan');
+if(live) showDone(live.id);
+})();
+</script>
+</body>
+</html>
