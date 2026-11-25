@@ -1007,6 +1007,11 @@ function renderMenuEditor(){
         <button class="btn ${cfg.webOpen ? 'ghost' : 'pri'}" id="webToggle" style="flex:0 0 auto;padding-inline:20px">${cfg.webOpen ? 'Tutup order online' : 'Buka order online'}</button>
         <span class="note" id="webMsg">${cfg.url ? '' : 'Sambung Google Sheets dulu.'}</span>
       </div>
+      <div class="wtoggle" style="margin-top:12px">
+        <span class="state ${cfg.voice === false ? 'off' : 'on'}">SUARA ${cfg.voice === false ? 'OFF' : 'ON'}</span>
+        <button class="btn ghost" id="voiceToggle" style="flex:0 0 auto;padding-inline:16px">${cfg.voice === false ? 'Hidupkan suara' : 'Matikan suara'}</button>
+        <button class="btn ghost" id="voiceTest" style="flex:0 0 auto;padding-inline:16px">Uji suara</button>
+      </div>
       <label class="lbl" for="webNote" style="display:block;margin:14px 0 6px">Pesanan untuk pelanggan (pilihan)</label>
       <input class="rmtext" id="webNote" type="text" maxlength="200" value="${esc(cfg.webNote||'')}" placeholder="Contoh: Ambil di kaunter A&amp;A Kitchen, depan Future U Cafe">
       <div class="bar-actions"><button class="btn ghost" id="webNoteSave">Simpan pesanan</button>
@@ -1028,6 +1033,8 @@ $('view-menu').addEventListener('click', e => {
     if(!cfg.url){ $('webMsg').textContent = 'Sambung Google Sheets dulu.'; return; }
     cfg.webOpen = !cfg.webOpen; save(K.cfg, cfg); renderMenuEditor(); pushMenu(true, true); return;
   }
+  if(e.target.id==='voiceToggle'){ cfg.voice = cfg.voice === false ? true : false; save(K.cfg, cfg); renderMenuEditor(); return; }
+  if(e.target.id==='voiceTest'){ chime(); setTimeout(() => announce([{no:'W001', name:'Aiman'}]), 1700); return; }
   if(e.target.id==='webNoteSave'){ cfg.webNote = $('webNote').value.trim(); save(K.cfg, cfg); pushMenu(true, true); return; }
   if(e.target.id==='saveMenu'){
     $('view-menu').querySelectorAll('[data-p]').forEach(inp => { const it = menu.find(i=>i.id===inp.dataset.p); const v = parseFloat(inp.value); if(!isNaN(v) && v>=0) it.price = SEN(v); });
@@ -1189,6 +1196,41 @@ async function pushMenu(force, announce){
 
 let audioCtx = null;
 document.addEventListener('pointerdown', () => { try{ audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==='suspended') audioCtx.resume(); }catch(e){} }, {once:false, passive:true});
+/* ---------- suara (Text-to-Speech) ---------- */
+let voiceMs = null;
+function pickVoice(){
+  try{
+    const vs = speechSynthesis.getVoices();
+    voiceMs = vs.find(v => /^ms(-|_|$)/i.test(v.lang)) || vs.find(v => /^id(-|_|$)/i.test(v.lang)) || null;
+  }catch(e){}
+}
+if('speechSynthesis' in window){ pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+// buka kunci suara pada tekanan pertama (syarat browser)
+document.addEventListener('pointerdown', function unlock(){
+  try{ const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); }catch(e){}
+  document.removeEventListener('pointerdown', unlock);
+}, {passive:true});
+function sayNo(no){
+  const m = String(no).match(/^([A-Za-z]*)0*(\d+)$/);
+  return m ? (m[1] ? m[1].toUpperCase() + ' ' : '') + Number(m[2]) : String(no);
+}
+function speak(text){
+  if(cfg.voice === false || !('speechSynthesis' in window)) return;
+  try{
+    const u = new SpeechSynthesisUtterance(text);
+    if(voiceMs){ u.voice = voiceMs; u.lang = voiceMs.lang; } else u.lang = 'ms-MY';
+    u.rate = 0.95; u.pitch = 1; u.volume = 1;
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+function announce(list){
+  const parts = list.map(o => 'Nombor ' + sayNo(o.no) + (o.name ? ', atas nama ' + o.name : '') + '.');
+  const text = (list.length > 1 ? 'Anda mempunyai ' + list.length + ' order baharu. ' : 'Anda mempunyai order baharu. ') + parts.join(' ');
+  try{ speechSynthesis.cancel(); }catch(e){}
+  speak(text);
+  setTimeout(() => speak('Ulang. ' + parts.join(' ')), 100);
+}
+
 function chime(){
   try{
     const ctx = audioCtx || new (window.AudioContext||window.webkitAudioContext)(); audioCtx = ctx;
@@ -1233,6 +1275,7 @@ async function pollOnline(){
 }
 function notifyNew(list){
   chime();
+  setTimeout(() => announce(list), 1700);
   const nos = list.map(o => fmtNo(o.no)).join(', ');
   flashTitle('● Order baharu ' + nos);
   openModal(`
