@@ -121,6 +121,9 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .steps li.ok i{background:var(--ok)} .steps li.ok{color:var(--ok)}
 .bigstat{margin-top:14px;font-family:var(--f-display);font-size:26px;letter-spacing:1px}
 .bigstat.ready{color:var(--ok)}
+.btn.wa{background:#1FA855;color:#fff;box-shadow:4px 4px 0 var(--ink);display:flex;align-items:center;justify-content:center;gap:10px;text-decoration:none}
+.btn.wa svg{width:24px;height:24px}
+.wa-sent{color:var(--ok);font-weight:700;text-align:center;font-size:14px}
 .mine{display:flex;flex-direction:column;gap:8px}
 .mine button{display:flex;justify-content:space-between;align-items:center;border:2px solid var(--line);background:var(--card);border-radius:12px;padding:12px 14px;text-align:left}
 .mine b{font-family:var(--f-display);font-weight:400;font-size:22px;color:var(--red)}
@@ -169,10 +172,11 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 <div class="scrim" id="scrim" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
 <div class="toast" id="toast" hidden></div>
 
+<script src="config.js"></script>
 <script>
-/* ===== Tetapan: tampal link Web App Google Apps Script anda di sini ===== */
-const API = 'https://script.google.com/macros/s/AKfycbxqtkeqCenSvQxfBOoFKHJrGJCaVYGMSkAWuWUik_pdtH2-w8Cf7xMFTTu08_gLeJ4FfQ/exec';
-/* ======================================================================= */
+/* Tetapan dibaca dari config.js (AAK_API = link Web App, AAK_WA = no WhatsApp kedai) */
+const API = (window.AAK_API || '').trim();
+const WA = String(window.AAK_WA || '60137669528').replace(/\D/g, '');
 
 (function(){
 const $ = id => document.getElementById(id);
@@ -339,7 +343,10 @@ function openCheckout(){
               items: cart.map(c => ({id:c.id, qty:c.qty, addons:c.addons, notes:c.notes, extra:c.extra}))})});
           const j = await r.json();
           if(!j.ok) throw new Error(j.error || 'Order tak berjaya.');
-          myOrders.push({id:j.id, no:j.no, total:j.total, day: today(), name, pickup, status:'Menunggu kaunter'});
+          const lines = cart.map(c => { const it = M.items.find(i => i.id === c.id); const g = (M.addons||{})[it.addons] || [];
+            const adn = g.filter(a => c.addons.includes(a.id)).map(a => a.name); const nt = c.notes.concat(c.extra ? [c.extra] : []);
+            return c.qty + 'x ' + it.label + (adn.length ? ' (+' + adn.join(', ') + ')' : '') + (nt.length ? ' [' + nt.join(', ') + ']' : ''); });
+          myOrders.push({id:j.id, no:j.no, total:j.total, day: today(), name, phone, pickup, note: f.querySelector('#nt').value.trim(), lines, status:'Menunggu kaunter'});
           save(LS.orders, myOrders);
           cart = []; save(LS.cart, cart);
           closeSheet(); showDone(j.id);
@@ -358,6 +365,13 @@ let current = null, pollT = null;
 function showDone(id){
   current = id; $('menuView').hidden = true; $('doneView').hidden = false; renderCartBar(); window.scrollTo(0,0);
   drawDone(); refreshStatus(); clearInterval(pollT); pollT = setInterval(refreshStatus, 15000);
+}
+function waLink(o){
+  const msg = ['Salam A&A Kitchen, saya dah buat order online (self pickup).',
+    '', 'No order: #' + o.no, 'Nama: ' + o.name, o.phone ? 'Tel: ' + o.phone : '', 'Masa ambil: ' + o.pickup,
+    '', 'Order:', ...(o.lines || []).map(l => '- ' + l), o.note ? 'Nota: ' + o.note : '',
+    '', 'Jumlah: ' + RM(o.total) + ' (bayar di kaunter)'].filter((x,i,a) => x !== '' || a[i-1] !== '').join('\n');
+  return 'https://wa.me/' + WA + '?text=' + encodeURIComponent(msg);
 }
 function drawDone(){
   const o = myOrders.find(x => x.id === current); if(!o) return;
@@ -379,10 +393,15 @@ function drawDone(){
       </ol>
       <div class="bigstat ${st === 2 ? 'ready' : ''}" role="status">${esc(msg)}</div>
     </div>
+    ${st < 3 && o.status !== 'Dibatalkan' ? `<a class="btn wa" id="waBtn" href="${esc(waLink(o))}" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l1.3-3.9A8 8 0 1 1 8 19z"/><path d="M9 10h6M9 13.5h4"/></svg>
+      Hantar order ke WhatsApp kedai</a>
+      ${o.waSent ? '<div class="wa-sent">WhatsApp dibuka. Pastikan anda tekan Send dalam WhatsApp.</div>' : ''}` : ''}
     <div class="info">Tunjuk nombor <b>#${esc(o.no)}</b> di kaunter dan bayar semasa ambil. Status dikemas kini sendiri.</div>
     <div class="row"><button class="btn sec" id="backMenu">Order lagi</button><button class="btn pri" id="refresh">Semak status</button></div>`;
   $('backMenu').onclick = () => { clearInterval(pollT); current = null; $('doneView').hidden = true; $('menuView').hidden = false; renderMenu(); renderCartBar(); renderMine(); };
   $('refresh').onclick = () => { refreshStatus(); toast('Menyemak status…'); };
+  const wb = $('waBtn'); if(wb) wb.addEventListener('click', () => { o.waSent = true; save(LS.orders, myOrders); setTimeout(drawDone, 400); });
 }
 async function refreshStatus(){
   const ids = myOrders.filter(o => STEP[o.status] < 3 && o.status !== 'Dibatalkan').map(o => o.id);
