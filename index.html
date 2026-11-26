@@ -1034,7 +1034,19 @@ $('view-menu').addEventListener('click', e => {
     cfg.webOpen = !cfg.webOpen; save(K.cfg, cfg); renderMenuEditor(); pushMenu(true, true); return;
   }
   if(e.target.id==='voiceToggle'){ cfg.voice = cfg.voice === false ? true : false; save(K.cfg, cfg); renderMenuEditor(); return; }
-  if(e.target.id==='voiceTest'){ chime(); setTimeout(() => announce([{no:'W001', name:'Aiman'}]), 1700); return; }
+  if(e.target.id==='voiceTest'){
+    pickVoice();
+    if(!('speechSynthesis' in window)){ toast('Browser ini tiada fungsi suara'); return; }
+    speechUnlocked = true;
+    const vn = voiceMs ? voiceMs.name : 'suara asal peranti';
+    let started = false;
+    announce([{no:'W001', name:'Aiman'}], {
+      onStart: () => { started = true; toast('Sedang bercakap · ' + vn); },
+      onErr: er => toast('Suara gagal (' + er + '). Semak volume / Silent mode.')
+    });
+    setTimeout(() => { if(!started) toast('Tiada suara keluar. Semak volume & Silent mode iPad, kemudian cuba lagi.'); }, 3000);
+    return;
+  }
   if(e.target.id==='webNoteSave'){ cfg.webNote = $('webNote').value.trim(); save(K.cfg, cfg); pushMenu(true, true); return; }
   if(e.target.id==='saveMenu'){
     $('view-menu').querySelectorAll('[data-p]').forEach(inp => { const it = menu.find(i=>i.id===inp.dataset.p); const v = parseFloat(inp.value); if(!isNaN(v) && v>=0) it.price = SEN(v); });
@@ -1195,40 +1207,48 @@ async function pushMenu(force, announce){
 }
 
 let audioCtx = null;
-document.addEventListener('pointerdown', () => { try{ audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==='suspended') audioCtx.resume(); }catch(e){} }, {once:false, passive:true});
+['pointerdown','touchend','click'].forEach(ev => document.addEventListener(ev, () => { try{ audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state !== 'running') audioCtx.resume(); }catch(e){} }, {passive:true}));
 /* ---------- suara (Text-to-Speech) ---------- */
 let voiceMs = null;
 function pickVoice(){
   try{
     const vs = speechSynthesis.getVoices();
-    voiceMs = vs.find(v => /^ms(-|_|$)/i.test(v.lang)) || vs.find(v => /^id(-|_|$)/i.test(v.lang)) || null;
+    voiceMs = vs.find(v => /^ms(-|_|$)/i.test(v.lang) && v.localService) || vs.find(v => /^ms(-|_|$)/i.test(v.lang))
+      || vs.find(v => /^id(-|_|$)/i.test(v.lang) && v.localService) || vs.find(v => /^id(-|_|$)/i.test(v.lang)) || null;
   }catch(e){}
 }
 if('speechSynthesis' in window){ pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
 // buka kunci suara pada tekanan pertama (syarat browser)
-document.addEventListener('pointerdown', function unlock(){
-  try{ const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); }catch(e){}
-  document.removeEventListener('pointerdown', unlock);
-}, {passive:true});
+let speechUnlocked = false;
+function unlockSpeech(){
+  if(speechUnlocked || !('speechSynthesis' in window)) return;
+  speechUnlocked = true;
+  try{ speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance('sedia'); u.volume = 0; u.rate = 2; speechSynthesis.speak(u); }catch(e){}
+  try{ audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state !== 'running') audioCtx.resume(); }catch(e){}
+}
+['touchend','click','keydown'].forEach(ev => document.addEventListener(ev, unlockSpeech, {passive:true}));
 function sayNo(no){
   const m = String(no).match(/^([A-Za-z]*)0*(\d+)$/);
   return m ? (m[1] ? m[1].toUpperCase() + ' ' : '') + Number(m[2]) : String(no);
 }
-function speak(text){
+function speak(text, onStart, onErr){
   if(cfg.voice === false || !('speechSynthesis' in window)) return;
   try{
     const u = new SpeechSynthesisUtterance(text);
-    if(voiceMs){ u.voice = voiceMs; u.lang = voiceMs.lang; } else u.lang = 'ms-MY';
+    if(onStart) u.onstart = onStart;
+    if(onErr) u.onerror = ev => onErr(ev.error || 'ralat');
+    if(!voiceMs) pickVoice();
+    if(voiceMs){ u.voice = voiceMs; u.lang = voiceMs.lang; } // tiada suara Melayu: guna suara asal peranti supaya tetap berbunyi
     u.rate = 0.95; u.pitch = 1; u.volume = 1;
     speechSynthesis.speak(u);
   }catch(e){}
 }
-function announce(list){
+function announce(list, opts){
   const parts = list.map(o => 'Nombor ' + sayNo(o.no) + (o.name ? ', atas nama ' + o.name : '') + '.');
   const text = (list.length > 1 ? 'Anda mempunyai ' + list.length + ' order baharu. ' : 'Anda mempunyai order baharu. ') + parts.join(' ');
-  try{ speechSynthesis.cancel(); }catch(e){}
-  speak(text);
-  setTimeout(() => speak('Ulang. ' + parts.join(' ')), 100);
+  try{ if(speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel(); speechSynthesis.resume(); }catch(e){}
+  speak(text, opts && opts.onStart, opts && opts.onErr);
+  speak('Ulang. ' + parts.join(' '));
 }
 
 function chime(){

@@ -2,7 +2,7 @@
 // - Ada internet: ambil index.html terbaru dari GitHub (supaya update terus nampak)
 // - Tiada internet: guna salinan yang tersimpan dalam peranti
 // Tukar nombor versi ini setiap kali fail app dikemas kini.
-const VERSION = 'aak-pos-v13';
+const VERSION = 'aak-pos-v16';
 const APP_FILES = [
   './',
   './index.html',
@@ -67,7 +67,8 @@ self.addEventListener('fetch', event => {
   }
 
   if (url.origin !== self.location.origin) return;
-  if (url.pathname.endsWith('/order.html')) return; // page pelanggan: biar browser urus terus
+  // page pelanggan & tetapan: sentiasa ambil terus dari GitHub, jangan simpan
+  if (/\/(order\.html|config\.js)$/.test(url.pathname)) return;
 
   // Page utama: internet dulu
   if (req.mode === 'navigate' || url.pathname.endsWith('/index.html') || url.pathname.endsWith('/aak-pos/')) {
